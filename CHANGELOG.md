@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1] - 2026-10-17
+
+### Added
+- `VeneerStyle.TabSwitcher` is public: windows that build their own tab bar with `VeneerStyle.Tabs` can switch their pages with the same fade + slide as `TabView` (`Switch`, `Snap`, `Animating`).
+
+### Fixed
+- The X / Y / Z / W letters inside Vector2 / Vector3 / Vector4 / Rect fields no longer get the label-column width, so the number boxes stay inside the card.
+
 ## [1.4.0] - 2026-10-17
 
 ### Added

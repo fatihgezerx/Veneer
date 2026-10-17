@@ -1096,6 +1096,13 @@
     min-width: var(--vn-label-width);
 }
 
+/* the X / Y / Z / W letters inside Vector2 / Vector3 / Vector4 / Rect fields are small labels, not label columns (the rule above would
+   give each of them the whole label width and push the number boxes out of the card) */
+.vn-root .vn-card .unity-composite-field .unity-composite-field__field > .unity-base-field__label {
+    min-width: 0;
+    width: auto;
+}
+
 /* [Header] / [Space] decorators would repeat what the cards already say */
 .vn-field--no-decorators > .unity-decorator-drawers-container {
     display: none;

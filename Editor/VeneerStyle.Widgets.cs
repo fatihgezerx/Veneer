@@ -1057,7 +1057,14 @@ namespace Veneer
         // Switches the pages of a TabView with a fade and a slide. States: idle, leaving (old page fading out), arriving (new page placed at
         // its start pose, waiting one frame so the style system sees the start values) and settling (new page transitioning to rest).
         // One timer at a time is kept in pending; every new switch or click cancels it, so no page is left half-faded.
-        private sealed class TabSwitcher
+        /// <summary>
+        /// Switches the pages of a hand-built tab bar with the same fade and slide as <see cref="TabView"/> (scaled by
+        /// <see cref="VeneerMotionKit.Scale"/>, instant when motion is off). Create it once with the container that holds the pages, the
+        /// pages and the bar made by <see cref="Tabs"/>, call <see cref="Initialize"/>, then call <see cref="Switch"/> from the bar's
+        /// <c>changed</c> callback (the bar has already moved its selection). Set the first pages with <see cref="Snap"/> (no animation) and
+        /// leave the page display alone while <see cref="Animating"/> is true.
+        /// </summary>
+        public sealed class TabSwitcher
         {
             private const int Idle = 0;
             private const int Leaving = 1;
@@ -1075,12 +1082,19 @@ namespace Veneer
             private int target;
             private float motion;
 
+            /// <param name="view">The container of the pages (timers and the motion setting come from it).</param>
+            /// <param name="pages">One element per tab, children of <paramref name="view"/> (or inside it).</param>
             public TabSwitcher(VisualElement view, VisualElement[] pages)
             {
                 this.view = view;
                 this.pages = pages;
             }
 
+            /// <summary>True while a page is fading or sliding; the caller must not change the pages' display meanwhile.</summary>
+            public bool Animating => phase != Idle;
+
+            /// <param name="tabBar">The bar made by <see cref="Tabs"/>; its selection is the truth when an animation ends.</param>
+            /// <param name="selected">The page shown at the start (-1 when none is shown yet).</param>
             public void Initialize(VisualElement tabBar, int selected)
             {
                 bar = tabBar;
@@ -1089,7 +1103,7 @@ namespace Veneer
                 view.RegisterCallback<DetachFromPanelEvent>(OnDetached);
             }
 
-            // Called after a user click already moved the tab bar's selection to index.
+            /// <summary>Shows page <paramref name="index"/> with the animation. Call it after the tab bar's selection moved to index.</summary>
             public void Switch(int index)
             {
                 if (index < 0 || index >= pages.Length)
@@ -1230,8 +1244,8 @@ namespace Veneer
                 }
             }
 
-            // Ends any animation at once: the page at index is shown with no leftover style, every other page is hidden (-1 hides all).
-            private void Snap(int index)
+            /// <summary>Ends any animation at once: page <paramref name="index"/> is shown with no leftover style, every other page is hidden (-1 hides all).</summary>
+            public void Snap(int index)
             {
                 CancelTimer();
                 for (int i = 0; i < pages.Length; i++)
