@@ -202,23 +202,83 @@ namespace Veneer
             return root;
         }
 
-        /// <summary>Applies a brand to an existing root: its accent preset class and its extra style sheet.</summary>
+        /// <summary>
+        /// Applies a brand to an existing root: its accent preset class and its extra style sheet, then the theme of the brand (see
+        /// <see cref="VeneerThemeRegistry.Effective"/>): the global theme's class and sheet first, then the system's, then the structural
+        /// classes such as the tab style and the motion setting. The theme comes last, so it beats the brand. A null brand (the default look) still gets the
+        /// global theme. With no theme in the project nothing is added.
+        /// </summary>
         public static void ApplyBrand(VisualElement root, VeneerBrand brand)
         {
-            if (brand == null)
+            if (brand != null)
+            {
+                if (!string.IsNullOrEmpty(brand.AccentClass))
+                {
+                    root.AddToClassList(brand.AccentClass);
+                }
+
+                StyleSheet extra = LoadSheet(brand.StyleSheetPath);
+                if (extra != null && !root.styleSheets.Contains(extra))
+                {
+                    root.styleSheets.Add(extra);
+                }
+            }
+
+            // Memoised per brand name: a dictionary hit and a few array reads.
+            AddEffective(root, VeneerThemeRegistry.Effective(brand));
+        }
+
+        /// <summary>
+        /// Applies a custom theme to an existing root, the way <see cref="ApplyBrand"/> applies a brand's theme: the theme classes and
+        /// generated style sheets of <see cref="VeneerThemeRegistry.EffectiveFor"/> (the global theme's first, then the custom theme's, so
+        /// the custom theme wins), then the structural classes of its tab style and motion setting. Because the custom theme replaces the look
+        /// as a whole, a tab style or motion class the root already had (from the global theme or a system's theme) is removed first. Nothing
+        /// happens for a null theme.
+        /// </summary>
+        /// <param name="root">The root to restyle.</param>
+        /// <param name="custom">The custom theme (see <see cref="VeneerTheme.Custom"/>); may be null.</param>
+        public static void ApplyTheme(VisualElement root, VeneerTheme custom)
+        {
+            if (root == null || custom == null)
             {
                 return;
             }
 
-            if (!string.IsNullOrEmpty(brand.AccentClass))
+            ClearStructuralClasses(root);
+            AddEffective(root, VeneerThemeRegistry.EffectiveFor(custom));
+        }
+
+        /// <summary>
+        /// Removes the tab style classes (<c>vn-tabstyle--pill</c>, <c>vn-tabstyle--boxed</c>) and the motion classes (<c>vn-motion--off|subtle|lively</c>)
+        /// a theme put on a root, so a theme applied after it can replace the tab style and the motion setting.
+        /// </summary>
+        internal static void ClearStructuralClasses(VisualElement root)
+        {
+            root.RemoveFromClassList(VeneerThemeEffective.PillClass);
+            root.RemoveFromClassList(VeneerThemeEffective.BoxedClass);
+            root.RemoveFromClassList(VeneerMotionKit.OffClass);
+            root.RemoveFromClassList(VeneerMotionKit.SubtleClass);
+            root.RemoveFromClassList(VeneerMotionKit.LivelyClass);
+        }
+
+        private static void AddEffective(VisualElement root, VeneerThemeEffective theme)
+        {
+            string[] sheets = theme.SheetPaths;
+            string[] classes = theme.ThemeClasses;
+            for (int i = 0; i < sheets.Length; i++)
             {
-                root.AddToClassList(brand.AccentClass);
+                root.AddToClassList(classes[i]);
+                StyleSheet themeSheet = LoadSheet(sheets[i]);
+                if (themeSheet != null && !root.styleSheets.Contains(themeSheet))
+                {
+                    root.styleSheets.Add(themeSheet);
+                }
             }
 
-            StyleSheet extra = LoadSheet(brand.StyleSheetPath);
-            if (extra != null && !root.styleSheets.Contains(extra))
+            string[] structural = theme.StructuralClasses;
+            for (int i = 0; i < structural.Length; i++)
             {
-                root.styleSheets.Add(extra);
+                root.AddToClassList(structural[i]);
             }
         }
 

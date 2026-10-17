@@ -7,6 +7,13 @@
  * Spacing uses margins only (USS in Unity 6000.3 has no gap property): blocks carry margin-bottom 6px; a .vn-row puts
  * margin-right 6px on its children and cancels the last one with a negative margin on itself.
  * Icons are white glyph PNGs tinted with -unity-background-image-tint-color.
+ * Shape (corner radius) and density (spacing, row and control heights) are variables on .vn-root too (--vn-radius-*, --vn-gap*,
+ * --vn-pad-*, --vn-row-h, --vn-ctl-h*, --vn-tab-h); the values below are the kit's own look, and a theme (Editor/Theme) may
+ * override them through its generated sheet. Where a variable sits in a multi-value property (padding, margin) the sides are written
+ * out one by one, so no shorthand has to resolve a variable. --vn-radius-pill-* are the fully round radii (half the element height),
+ * --vn-gap-neg is always -gap, and the preset numbers are tabled in Editor/Theme/VeneerThemeSheet.cs. Tab bar variants are scoped classes on the root (vn-tabstyle--pill|boxed).
+ * Motion (hover fades, press scale, slider handle, text field focus) is the last section of this file; the theme's motion setting is a root class
+ * (vn-motion--off|subtle|lively, none = normal) that the rules of that section key on.
  */
 
 /* ------------------------------------------------------------------ root and palette */
@@ -24,6 +31,26 @@
     --vn-pressed: rgba(63, 182, 255, 0.24);
     --vn-track: rgba(0, 0, 0, 0.28);
     --vn-label-width: 132px;
+
+    --vn-radius-sm: 4px;
+    --vn-radius-md: 5px;
+    --vn-radius-lg: 6px;
+    --vn-radius-xl: 8px;
+    --vn-radius-seg: 7px;
+    --vn-radius-pill-sm: 8px;
+    --vn-radius-pill-md: 11px;
+    --vn-radius-pill-lg: 12px;
+
+    --vn-gap: 6px;
+    --vn-gap-neg: -6px;
+    --vn-gap-sm: 4px;
+    --vn-pad-x: 10px;
+    --vn-pad-y: 8px;
+    --vn-pad-b: 4px;
+    --vn-row-h: 22px;
+    --vn-ctl-h: 24px;
+    --vn-ctl-h-lg: 30px;
+    --vn-tab-h: 28px;
 
     --vn-ok: #4ADE80;
     --vn-ok-bg: rgba(74, 222, 128, 0.16);
@@ -152,7 +179,10 @@
 }
 
 .vn-section {
-    margin: 4px 0 6px 0;
+    margin-top: 4px;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
 }
 
 .vn-section__label {
@@ -192,20 +222,25 @@
 .vn-row {
     flex-direction: row;
     align-items: center;
-    margin-right: -6px;
+    margin-right: var(--vn-gap-neg);
 }
 
-.vn-row > * {
-    margin-right: 6px;
+/* The doubled class raises the weight above the margin resets of single components (.vn-chip, .vn-pill, .vn-thumb, .vn-button...), which
+   come later in this file and would otherwise cancel the gap between the children of a row. */
+.vn-row.vn-row > * {
+    margin-right: var(--vn-gap);
 }
 
+/* The wrapped lines carry margin-bottom on their children (below), so the box already ends with one gap: the row adds none of its own.
+   (It used to cancel that gap with a negative margin; inside a card the card's "> *" rule overrode it, but anywhere else - a list row,
+   a custom host - the chips touched whatever came next.) */
 .vn-row--wrap {
     flex-wrap: wrap;
-    margin-bottom: -6px;
+    margin-bottom: 0;
 }
 
-.vn-row--wrap > * {
-    margin-bottom: 6px;
+.vn-row--wrap.vn-row--wrap > * {
+    margin-bottom: var(--vn-gap);
 }
 
 .vn-row--between {
@@ -216,8 +251,11 @@
 .vn-field-row {
     flex-direction: row;
     align-items: center;
-    min-height: 22px;
-    margin: 0 0 4px 0;
+    min-height: var(--vn-row-h);
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap-sm);
+    margin-left: 0;
 }
 
 .vn-field-row__label {
@@ -249,13 +287,16 @@
 }
 
 .vn-slider-row {
-    margin: 0 0 4px 0;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap-sm);
+    margin-left: 0;
 }
 
 .vn-slider-row__top {
     flex-direction: row;
     align-items: center;
-    min-height: 22px;
+    min-height: var(--vn-row-h);
 }
 
 .vn-slider-row__slider {
@@ -271,16 +312,22 @@
 /* ------------------------------------------------------------------ cards and headers */
 
 .vn-card {
-    padding: 8px 10px 4px 10px;
-    margin: 0 0 6px 0;
-    border-radius: 6px;
+    padding-top: var(--vn-pad-y);
+    padding-right: var(--vn-pad-x);
+    padding-bottom: var(--vn-pad-b);
+    padding-left: var(--vn-pad-x);
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
+    border-radius: var(--vn-radius-lg);
     border-width: 1px;
     border-color: var(--vn-card-border);
     background-color: var(--vn-card);
 }
 
 .vn-card > * {
-    margin-bottom: 6px;
+    margin-bottom: var(--vn-gap);
 }
 
 .vn-card.vn-card--nested {
@@ -319,14 +366,20 @@
     flex-grow: 1;
     flex-basis: 150px;
     min-width: 140px;
-    margin: 0 6px 6px 0;
-    padding: 8px 10px;
+    margin-top: 0;
+    margin-right: var(--vn-gap);
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
+    padding-top: var(--vn-pad-y);
+    padding-right: var(--vn-pad-x);
+    padding-bottom: var(--vn-pad-y);
+    padding-left: var(--vn-pad-x);
     align-items: stretch;
     justify-content: flex-start;
     -unity-text-align: upper-left;
     white-space: normal;
     border-width: 1px;
-    border-radius: 6px;
+    border-radius: var(--vn-radius-lg);
     border-color: var(--vn-card-border);
     background-color: var(--vn-card);
 }
@@ -364,7 +417,7 @@
     height: 16px;
     margin: 0;
     padding: 0 8px;
-    border-radius: 8px;
+    border-radius: var(--vn-radius-pill-sm);
     border-width: 1px;
     border-color: var(--vn-accent-line);
     background-color: var(--vn-accent-soft);
@@ -387,29 +440,25 @@
 /* ------------------------------------------------------------------ buttons */
 
 .vn-icon-button {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
+    width: var(--vn-ctl-h);
+    height: var(--vn-ctl-h);
+    min-width: var(--vn-ctl-h);
     margin: 0;
     padding: 0;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
     border-width: 1px;
-    border-radius: 5px;
+    border-radius: var(--vn-radius-md);
     border-color: transparent;
     background-color: transparent;
-    transition-property: background-color, border-color;
-    transition-duration: 0.1s;
 }
 
 .vn-icon-button > .vn-icon {
     -unity-background-image-tint-color: var(--vn-text-muted);
-    transition-property: -unity-background-image-tint-color;
-    transition-duration: 0.1s;
 }
 
-.vn-icon-button:hover { background-color: var(--vn-hover); border-color: var(--vn-card-border); }
+.vn-icon-button:hover { background-color: var(--vn-accent-soft); border-color: var(--vn-accent-line); }
 .vn-icon-button:hover > .vn-icon { -unity-background-image-tint-color: var(--vn-text); }
 .vn-icon-button:active { background-color: var(--vn-pressed); border-color: var(--vn-accent-line); }
 .vn-icon-button:active > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
@@ -425,20 +474,21 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    height: 24px;
+    height: var(--vn-ctl-h);
     margin: 0;
-    padding: 0 10px;
+    padding-top: 0;
+    padding-right: var(--vn-pad-x);
+    padding-bottom: 0;
+    padding-left: var(--vn-pad-x);
     border-width: 1px;
-    border-radius: 5px;
+    border-radius: var(--vn-radius-md);
     border-color: var(--vn-card-border);
     background-color: var(--vn-track);
     color: var(--vn-text);
-    transition-property: background-color, border-color;
-    transition-duration: 0.1s;
 }
 
 .vn-button > .vn-icon { margin-right: 6px; }
-.vn-button:hover { background-color: var(--vn-hover); }
+.vn-button:hover { background-color: var(--vn-accent-soft); border-color: var(--vn-accent-line); }
 .vn-button:active { background-color: var(--vn-pressed); border-color: var(--vn-accent-line); }
 .vn-button:focus { border-color: var(--vn-accent-line); }
 .vn-button:disabled { opacity: 0.4; }
@@ -451,9 +501,9 @@
 }
 
 .vn-button.vn-button--primary {
-    height: 30px;
+    height: var(--vn-ctl-h-lg);
     border-width: 0;
-    border-radius: 6px;
+    border-radius: var(--vn-radius-lg);
     background-color: var(--vn-accent);
 }
 
@@ -468,7 +518,7 @@
     align-self: flex-start;
     flex-shrink: 0;
     padding: 2px;
-    border-radius: 7px;
+    border-radius: var(--vn-radius-seg);
     border-width: 1px;
     border-color: var(--vn-card-border);
     background-color: var(--vn-track);
@@ -476,24 +526,20 @@
 
 .vn-segmented__button {
     min-width: 34px;
-    height: 24px;
+    height: var(--vn-ctl-h);
     margin: 0;
     padding: 0 8px;
     flex-direction: row;
     align-items: center;
     justify-content: center;
     border-width: 1px;
-    border-radius: 5px;
+    border-radius: var(--vn-radius-md);
     border-color: transparent;
     background-color: transparent;
-    transition-property: background-color, border-color;
-    transition-duration: 0.1s;
 }
 
 .vn-segmented__button > .vn-icon {
     -unity-background-image-tint-color: var(--vn-text-muted);
-    transition-property: -unity-background-image-tint-color;
-    transition-duration: 0.1s;
 }
 
 .vn-segmented__label {
@@ -503,9 +549,11 @@
     color: var(--vn-text-muted);
 }
 
-.vn-segmented__button:hover { background-color: var(--vn-hover); border-color: transparent; }
+/* Toggle-like controls (segmented buttons, chips) light their border with the accent on hover but keep the neutral fill, so a hovered
+   "off" one is never mistaken for an "on" one (which is the accent-soft fill). */
+.vn-segmented__button:hover { background-color: var(--vn-hover); border-color: var(--vn-accent-line); }
 .vn-segmented__button:hover > .vn-icon { -unity-background-image-tint-color: var(--vn-text); }
-.vn-segmented__button:active { background-color: var(--vn-pressed); border-color: transparent; }
+.vn-segmented__button:active { background-color: var(--vn-pressed); border-color: var(--vn-accent-line); }
 .vn-segmented__button:focus { border-color: var(--vn-accent-line); }
 
 .vn-segmented__button.vn-segmented__button--selected,
@@ -514,6 +562,8 @@
     background-color: var(--vn-accent-soft);
     border-color: var(--vn-accent-line);
 }
+
+.vn-segmented__button.vn-segmented__button--selected:hover { background-color: var(--vn-pressed); }
 
 .vn-segmented__button.vn-segmented__button--selected > .vn-icon,
 .vn-segmented__button.vn-segmented__button--selected:hover > .vn-icon {
@@ -528,15 +578,13 @@
     flex-direction: row;
     align-items: center;
     flex-shrink: 0;
-    height: 24px;
+    height: var(--vn-ctl-h);
     margin: 0;
     padding: 0 10px 0 8px;
     border-width: 1px;
-    border-radius: 12px;
+    border-radius: var(--vn-radius-pill-lg);
     border-color: var(--vn-card-border);
     background-color: var(--vn-track);
-    transition-property: background-color, border-color;
-    transition-duration: 0.1s;
 }
 
 .vn-chip > .vn-icon {
@@ -552,7 +600,7 @@
     -unity-text-align: middle-left;
 }
 
-.vn-chip:hover { background-color: var(--vn-hover); border-color: var(--vn-card-border); }
+.vn-chip:hover { background-color: var(--vn-hover); border-color: var(--vn-accent-line); }
 .vn-chip:active { background-color: var(--vn-pressed); border-color: var(--vn-accent-line); }
 .vn-chip:focus { border-color: var(--vn-accent-line); }
 
@@ -562,6 +610,8 @@
     background-color: var(--vn-accent-soft);
     border-color: var(--vn-accent-line);
 }
+
+.vn-chip.vn-chip--on:hover { background-color: var(--vn-pressed); }
 
 .vn-chip.vn-chip--on > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
 .vn-root .vn-chip.vn-chip--on > Label { color: var(--vn-text); }
@@ -581,16 +631,20 @@
     flex-basis: 0;
     align-items: center;
     justify-content: center;
-    height: 28px;
+    height: var(--vn-tab-h);
     margin: 0;
-    padding: 0 10px;
+    padding-top: 0;
+    padding-right: var(--vn-pad-x);
+    padding-bottom: 0;
+    padding-left: var(--vn-pad-x);
     border-width: 0;
     border-bottom-width: 2px;
-    border-radius: 5px 5px 0 0;
+    border-top-left-radius: var(--vn-radius-md);
+    border-top-right-radius: var(--vn-radius-md);
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
     border-color: transparent;
     background-color: transparent;
-    transition-property: background-color, border-color;
-    transition-duration: 0.1s;
 }
 
 .vn-tab > .vn-icon {
@@ -606,8 +660,10 @@
     -unity-text-align: middle-left;
 }
 
-.vn-tab:hover { background-color: var(--vn-hover); border-color: transparent; }
-.vn-tab:active { background-color: var(--vn-pressed); border-color: transparent; }
+/* A tab does not scale (it sits flush in its bar): hover fades in a faint accent underline and a brighter label, a press tints it. */
+.vn-tab:hover { background-color: var(--vn-hover); border-color: transparent; border-bottom-color: var(--vn-accent-line); }
+.vn-tab:hover > .vn-tab__label { color: var(--vn-text); }
+.vn-tab:active { background-color: var(--vn-pressed); border-color: transparent; border-bottom-color: var(--vn-accent-line); }
 .vn-tab:focus { border-color: transparent; }
 
 .vn-tab.vn-tab--selected,
@@ -622,6 +678,72 @@
 .vn-tab.vn-tab--selected > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
 .vn-root .vn-tab.vn-tab--selected > Label { color: var(--vn-text); }
 
+/* Tab style variants (a theme adds one of the classes to the root; no class = the underline look above). The selected tab is
+   filled with the accent, so its text and icon use the same dark ink as a primary button. */
+
+/* pill: separate rounded tabs, no line under the bar */
+.vn-root.vn-tabstyle--pill .vn-tabs {
+    border-bottom-width: 0;
+}
+
+.vn-root.vn-tabstyle--pill .vn-tab {
+    height: var(--vn-ctl-h);
+    margin-top: 0;
+    margin-right: 2px;
+    margin-bottom: 0;
+    margin-left: 2px;
+    border-bottom-width: 0;
+    border-top-left-radius: var(--vn-radius-pill-lg);
+    border-top-right-radius: var(--vn-radius-pill-lg);
+    border-bottom-right-radius: var(--vn-radius-pill-lg);
+    border-bottom-left-radius: var(--vn-radius-pill-lg);
+}
+
+.vn-root.vn-tabstyle--pill .vn-tab.vn-tab--selected,
+.vn-root.vn-tabstyle--pill .vn-tab.vn-tab--selected:hover,
+.vn-root.vn-tabstyle--pill .vn-tab.vn-tab--selected:active,
+.vn-root.vn-tabstyle--pill .vn-tab.vn-tab--selected:focus {
+    background-color: var(--vn-accent);
+    border-color: transparent;
+}
+
+.vn-root.vn-tabstyle--pill .vn-tab.vn-tab--selected > .vn-icon { -unity-background-image-tint-color: #0A0F18; }
+.vn-root.vn-tabstyle--pill .vn-tab.vn-tab--selected > Label { color: #0A0F18; -unity-font-style: bold; }
+
+/* boxed: the tabs sit flush in one bordered box (the box clips the filled tab to its corners) */
+.vn-root.vn-tabstyle--boxed .vn-tabs {
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    border-top-left-radius: var(--vn-radius-md);
+    border-top-right-radius: var(--vn-radius-md);
+    border-bottom-right-radius: var(--vn-radius-md);
+    border-bottom-left-radius: var(--vn-radius-md);
+    overflow: hidden;
+    background-color: var(--vn-track);
+}
+
+.vn-root.vn-tabstyle--boxed .vn-tab {
+    border-bottom-width: 0;
+    border-radius: 0;
+}
+
+.vn-root.vn-tabstyle--boxed .vn-tab.vn-tab--selected,
+.vn-root.vn-tabstyle--boxed .vn-tab.vn-tab--selected:hover,
+.vn-root.vn-tabstyle--boxed .vn-tab.vn-tab--selected:active,
+.vn-root.vn-tabstyle--boxed .vn-tab.vn-tab--selected:focus {
+    background-color: var(--vn-accent);
+    border-color: transparent;
+}
+
+.vn-root.vn-tabstyle--boxed .vn-tab.vn-tab--selected > .vn-icon { -unity-background-image-tint-color: #0A0F18; }
+.vn-root.vn-tabstyle--boxed .vn-tab.vn-tab--selected > Label { color: #0A0F18; -unity-font-style: bold; }
+
+/* hover on the filled tab styles (no underline there): a soft accent tint; the selected tab keeps its own, heavier rules above */
+.vn-root.vn-tabstyle--pill .vn-tab:hover,
+.vn-root.vn-tabstyle--boxed .vn-tab:hover {
+    background-color: var(--vn-accent-soft);
+}
+
 /* ------------------------------------------------------------------ banner */
 
 /* The picture is assigned in code; the banner stays dark in both skins, so its text colours are fixed. */
@@ -631,7 +753,7 @@
     height: 84px;
     margin: 0 0 8px 0;
     padding: 0 16px;
-    border-radius: 8px;
+    border-radius: var(--vn-radius-xl);
     overflow: hidden;
     background-color: #101826;
     -unity-background-scale-mode: scale-and-crop;
@@ -674,8 +796,11 @@
     flex-shrink: 1;
     flex-basis: 0;
     min-width: 80px;
-    padding: 8px 10px;
-    border-radius: 6px;
+    padding-top: var(--vn-pad-y);
+    padding-right: var(--vn-pad-x);
+    padding-bottom: var(--vn-pad-y);
+    padding-left: var(--vn-pad-x);
+    border-radius: var(--vn-radius-lg);
     border-width: 1px;
     border-color: var(--vn-card-border);
     background-color: var(--vn-card);
@@ -739,8 +864,11 @@
     flex-direction: row;
     align-items: center;
     padding: 6px 8px;
-    margin: 0 0 6px 0;
-    border-radius: 5px;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
+    border-radius: var(--vn-radius-md);
     border-left-width: 3px;
     border-left-color: var(--vn-accent);
     background-color: var(--vn-accent-soft);
@@ -778,10 +906,13 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    min-height: 22px;
-    margin: 0 0 6px 0;
+    min-height: var(--vn-row-h);
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
     padding: 3px 8px;
-    border-radius: 5px;
+    border-radius: var(--vn-radius-md);
     border-width: 1px;
     border-color: var(--vn-card-border);
     background-color: var(--vn-accent-soft);
@@ -805,7 +936,7 @@
     height: 26px;
     margin: 0;
     padding: 0 6px;
-    border-radius: 4px;
+    border-radius: var(--vn-radius-sm);
     background-color: transparent;
 }
 
@@ -815,16 +946,22 @@
 .vn-list-row.vn-list-row--alt:hover { background-color: var(--vn-hover); }
 
 .vn-list {
-    margin: 0 0 6px 0;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
 }
 
 .vn-list__header {
     flex-direction: row;
     align-items: center;
-    margin: 0 0 4px 0;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap-sm);
+    margin-left: 0;
 }
 
-.vn-list__header > * { margin-right: 6px; }
+.vn-list__header.vn-list__header > * { margin-right: var(--vn-gap); }
 
 .vn-list__title {
     margin: 0;
@@ -835,14 +972,17 @@
 
 .vn-list__view {
     border-width: 1px;
-    border-radius: 5px;
+    border-radius: var(--vn-radius-md);
     border-color: var(--vn-card-border);
     background-color: var(--vn-track);
     min-height: 24px;
 }
 
 .vn-list__notice {
-    margin: 0 0 6px 0;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
     white-space: normal;
 }
 
@@ -861,11 +1001,11 @@
     flex-direction: row;
     align-items: center;
     flex-grow: 1;
-    height: 22px;
+    height: var(--vn-row-h);
     margin: 0;
     padding: 0 4px 0 6px;
     border-width: 1px;
-    border-radius: 11px;
+    border-radius: var(--vn-radius-pill-md);
     border-color: var(--vn-card-border);
     background-color: var(--vn-track);
 }
@@ -913,7 +1053,7 @@
     flex-shrink: 0;
     margin: 0;
     border-width: 1px;
-    border-radius: 5px;
+    border-radius: var(--vn-radius-md);
     border-color: var(--vn-card-border);
     background-color: var(--vn-track);
     -unity-background-scale-mode: scale-to-fit;
@@ -922,7 +1062,7 @@
 .vn-graph {
     height: 120px;
     margin: 0;
-    border-radius: 5px;
+    border-radius: var(--vn-radius-md);
     background-color: var(--vn-track);
 }
 
@@ -959,4 +1099,288 @@
 /* [Header] / [Space] decorators would repeat what the cards already say */
 .vn-field--no-decorators > .unity-decorator-drawers-container {
     display: none;
+}
+
+/* ------------------------------------------------------------------ interaction motion */
+
+/*
+ * Hover and focus are colour fades; a press is a small shrink that springs back. The :active state ends when the button is released or
+ * the pointer leaves it, so the element returns by itself. Everything here is USS (no code runs per frame).
+ *
+ * Specificity: the stock default theme styles the slider parts with long selectors, so the slider rules below repeat the stock class chain
+ * (.unity-base-slider ... __drag-container ... __dragger) to stay heavier than it. The motion classes of the root (vn-motion--off|subtle|lively,
+ * none = normal) add one class to a selector, so a motion rule always beats the normal rule it replaces; in each group the held rule comes
+ * after the hover rule (the same weight), so a held handle wins over a hovered one. Never put "translate" in a transition-property of the
+ * slider handle: the stock slider positions it with an inline translate, and a transition would make the handle lag the pointer.
+ *
+ *                  press scale (normal / subtle / lively)    fade     spring on release
+ *   button         0.96 / 0.98 / 0.92                         0.12 s   ease-out-back (lively: ease-out-elastic)
+ *   chip, segment  0.95 / 0.98 / 0.92
+ *   icon button    0.92 / 0.96 / 0.88
+ *   slider handle  hover 1.18 / 1.10 / 1.25, held 1.32 / 1.18 / 1.45
+ */
+
+/* ---- normal (also the look with no motion class) */
+
+.vn-button,
+.vn-icon-button,
+.vn-chip,
+.vn-segmented__button {
+    transition-property: background-color, border-color, scale;
+    transition-duration: 0.12s, 0.12s, 0.24s;
+    transition-timing-function: ease-out, ease-out, ease-out-back;
+}
+
+.vn-button:active,
+.vn-icon-button:active,
+.vn-chip:active,
+.vn-segmented__button:active {
+    transition-duration: 0.12s, 0.12s, 0.08s;
+    transition-timing-function: ease-out, ease-out, ease-out;
+}
+
+.vn-button:active { scale: 0.96 0.96; }
+.vn-chip:active, .vn-segmented__button:active { scale: 0.95 0.95; }
+.vn-icon-button:active { scale: 0.92 0.92; }
+
+/* The chip keeps its original 0.1 s colour fade (the chip pop written in code uses the same value). */
+.vn-chip { transition-duration: 0.1s, 0.1s, 0.24s; }
+.vn-chip:active { transition-duration: 0.1s, 0.1s, 0.08s; }
+
+.vn-tab {
+    transition-property: background-color, border-color;
+    transition-duration: 0.12s;
+    transition-timing-function: ease-out;
+}
+
+.vn-icon-button > .vn-icon,
+.vn-segmented__button > .vn-icon,
+.vn-chip > .vn-icon,
+.vn-tab > .vn-icon {
+    transition-property: -unity-background-image-tint-color;
+    transition-duration: 0.12s;
+    transition-timing-function: ease-out;
+}
+
+.vn-tab__label,
+.vn-chip__label,
+.vn-segmented__label {
+    transition-property: color;
+    transition-duration: 0.12s;
+    transition-timing-function: ease-out;
+}
+
+/* Text fields: the border fades to the accent while the field has focus. USS has no outline, so the border is the focus ring. */
+.vn-root .unity-base-text-field .unity-base-text-field__input {
+    transition-property: border-color;
+    transition-duration: 0.15s;
+    transition-timing-function: ease-out;
+}
+
+.vn-root .unity-base-text-field .unity-base-text-field__input:focus {
+    border-color: var(--vn-accent);
+}
+
+/* Slider: the filled part of the track (made in code by VeneerControls.SliderRow) is the soft accent at rest, the full accent while the slider
+   is hovered or held. Its width is never transitioned, so it cannot lag behind the handle. */
+.vn-slider__fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-radius: 3px;
+    background-color: var(--vn-accent-line);
+}
+
+.vn-root .vn-slider:hover .vn-slider__fill,
+.vn-root .vn-slider.vn-slider--held .vn-slider__fill {
+    background-color: var(--vn-accent);
+}
+
+/* Slider handle: hover grows it and takes the accent; held (a class set by code while the pointer is down) grows it more, adds a brighter
+   rim and a soft accent ring (the stock dragger-border element, drawn behind the handle). */
+
+.vn-root .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
+.vn-root .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border {
+    transition-property: scale, background-color, border-color;
+    transition-duration: 0.14s, 0.12s, 0.12s;
+    transition-timing-function: ease-out-back, ease-out, ease-out;
+}
+
+.vn-root .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:hover {
+    scale: 1.18 1.18;
+    background-color: var(--vn-accent);
+    border-color: var(--vn-accent-line);
+}
+
+.vn-root .vn-slider.vn-slider--held.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
+.vn-root .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:active {
+    scale: 1.32 1.32;
+    background-color: var(--vn-accent);
+    border-color: rgba(255, 255, 255, 0.70);
+}
+
+.vn-root .vn-slider.vn-slider--held.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border {
+    scale: 1.32 1.32;
+    border-width: 2px;
+    border-radius: 12px;
+    border-color: var(--vn-accent-line);
+    background-color: var(--vn-accent-soft);
+}
+
+/* ---- subtle: shorter fades, smaller scales, no overshoot */
+
+.vn-root.vn-motion--subtle .vn-button,
+.vn-root.vn-motion--subtle .vn-icon-button,
+.vn-root.vn-motion--subtle .vn-chip,
+.vn-root.vn-motion--subtle .vn-segmented__button {
+    transition-duration: 0.07s, 0.07s, 0.1s;
+    transition-timing-function: ease-out;
+}
+
+.vn-root.vn-motion--subtle .vn-button:active,
+.vn-root.vn-motion--subtle .vn-icon-button:active,
+.vn-root.vn-motion--subtle .vn-chip:active,
+.vn-root.vn-motion--subtle .vn-segmented__button:active {
+    transition-duration: 0.07s, 0.07s, 0.05s;
+    transition-timing-function: ease-out;
+}
+
+.vn-root.vn-motion--subtle .vn-button:active, .vn-root.vn-motion--subtle .vn-chip:active, .vn-root.vn-motion--subtle .vn-segmented__button:active { scale: 0.98 0.98; }
+.vn-root.vn-motion--subtle .vn-icon-button:active { scale: 0.96 0.96; }
+
+.vn-root.vn-motion--subtle .vn-tab,
+.vn-root.vn-motion--subtle .vn-icon-button > .vn-icon,
+.vn-root.vn-motion--subtle .vn-segmented__button > .vn-icon,
+.vn-root.vn-motion--subtle .vn-chip > .vn-icon,
+.vn-root.vn-motion--subtle .vn-tab > .vn-icon,
+.vn-root.vn-motion--subtle .vn-tab__label,
+.vn-root.vn-motion--subtle .vn-chip__label,
+.vn-root.vn-motion--subtle .vn-segmented__label,
+.vn-root.vn-motion--subtle .vn-slider__fill {
+    transition-duration: 0.07s;
+}
+
+.vn-root.vn-motion--subtle .unity-base-text-field .unity-base-text-field__input {
+    transition-duration: 0.1s;
+}
+
+.vn-root.vn-motion--subtle .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
+.vn-root.vn-motion--subtle .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border {
+    transition-duration: 0.08s, 0.07s, 0.07s;
+    transition-timing-function: ease-out;
+}
+
+.vn-root.vn-motion--subtle .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:hover {
+    scale: 1.10 1.10;
+}
+
+.vn-root.vn-motion--subtle .vn-slider.vn-slider--held.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
+.vn-root.vn-motion--subtle .vn-slider.vn-slider--held.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border,
+.vn-root.vn-motion--subtle .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:active {
+    scale: 1.18 1.18;
+}
+
+/* ---- lively: longer fades, bigger scales, elastic return */
+
+.vn-root.vn-motion--lively .vn-button,
+.vn-root.vn-motion--lively .vn-icon-button,
+.vn-root.vn-motion--lively .vn-chip,
+.vn-root.vn-motion--lively .vn-segmented__button {
+    transition-duration: 0.2s, 0.2s, 0.45s;
+    transition-timing-function: ease-out, ease-out, ease-out-elastic;
+}
+
+.vn-root.vn-motion--lively .vn-button:active,
+.vn-root.vn-motion--lively .vn-icon-button:active,
+.vn-root.vn-motion--lively .vn-chip:active,
+.vn-root.vn-motion--lively .vn-segmented__button:active {
+    transition-duration: 0.2s, 0.2s, 0.1s;
+    transition-timing-function: ease-out;
+}
+
+.vn-root.vn-motion--lively .vn-button:active, .vn-root.vn-motion--lively .vn-chip:active, .vn-root.vn-motion--lively .vn-segmented__button:active { scale: 0.92 0.92; }
+.vn-root.vn-motion--lively .vn-icon-button:active { scale: 0.88 0.88; }
+
+.vn-root.vn-motion--lively .vn-tab,
+.vn-root.vn-motion--lively .vn-icon-button > .vn-icon,
+.vn-root.vn-motion--lively .vn-segmented__button > .vn-icon,
+.vn-root.vn-motion--lively .vn-chip > .vn-icon,
+.vn-root.vn-motion--lively .vn-tab > .vn-icon,
+.vn-root.vn-motion--lively .vn-tab__label,
+.vn-root.vn-motion--lively .vn-chip__label,
+.vn-root.vn-motion--lively .vn-segmented__label,
+.vn-root.vn-motion--lively .vn-slider__fill {
+    transition-duration: 0.2s;
+}
+
+.vn-root.vn-motion--lively .unity-base-text-field .unity-base-text-field__input {
+    transition-duration: 0.25s;
+}
+
+.vn-root.vn-motion--lively .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
+.vn-root.vn-motion--lively .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border {
+    transition-duration: 0.45s, 0.2s, 0.2s;
+    transition-timing-function: ease-out-elastic, ease-out, ease-out;
+}
+
+.vn-root.vn-motion--lively .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:hover {
+    scale: 1.25 1.25;
+}
+
+.vn-root.vn-motion--lively .vn-slider.vn-slider--held.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
+.vn-root.vn-motion--lively .vn-slider.vn-slider--held.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border,
+.vn-root.vn-motion--lively .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:active {
+    scale: 1.45 1.45;
+}
+
+/* ---- off: nothing moves (colours still change, instantly; a pressed element keeps its size) */
+
+.vn-root.vn-motion--off .vn-button,
+.vn-root.vn-motion--off .vn-icon-button,
+.vn-root.vn-motion--off .vn-chip,
+.vn-root.vn-motion--off .vn-segmented__button,
+.vn-root.vn-motion--off .vn-tab,
+.vn-root.vn-motion--off .vn-icon-button > .vn-icon,
+.vn-root.vn-motion--off .vn-segmented__button > .vn-icon,
+.vn-root.vn-motion--off .vn-chip > .vn-icon,
+.vn-root.vn-motion--off .vn-tab > .vn-icon,
+.vn-root.vn-motion--off .vn-tab__label,
+.vn-root.vn-motion--off .vn-chip__label,
+.vn-root.vn-motion--off .vn-segmented__label,
+.vn-root.vn-motion--off .vn-slider__fill,
+.vn-root.vn-motion--off .unity-base-text-field .unity-base-text-field__input,
+.vn-root.vn-motion--off .vn-bar__fill {
+    transition-duration: 0s;
+}
+
+.vn-root.vn-motion--off .vn-button:active,
+.vn-root.vn-motion--off .vn-icon-button:active,
+.vn-root.vn-motion--off .vn-chip:active,
+.vn-root.vn-motion--off .vn-segmented__button:active {
+    scale: 1 1;
+}
+
+.vn-root.vn-motion--off .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
+.vn-root.vn-motion--off .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border {
+    transition-duration: 0s;
+}
+
+.vn-root.vn-motion--off .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:hover {
+    scale: 1 1;
+}
+
+.vn-root.vn-motion--off .vn-slider.vn-slider--held.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
+.vn-root.vn-motion--off .vn-slider.vn-slider--held.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border,
+.vn-root.vn-motion--off .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:active {
+    scale: 1 1;
+}
+
+/* A disabled control keeps its shape and dims, so a greyed chip or button is never mistaken for an "off" one. */
+.vn-chip:disabled,
+.vn-button:disabled,
+.vn-icon-button:disabled,
+.vn-segmented:disabled {
+    opacity: 0.4;
 }

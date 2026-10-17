@@ -135,6 +135,7 @@ namespace Veneer
 
             VisualElement number;
             VisualElement slider;
+            SliderVisuals visuals;
             if (property.propertyType == SerializedPropertyType.Integer)
             {
                 var integer = new IntegerField { isDelayed = true };
@@ -152,6 +153,9 @@ namespace Veneer
                 var bar = new SliderInt(Mathf.RoundToInt(low), Mathf.RoundToInt(high));
                 bar.BindProperty(property);
                 slider = bar;
+                SliderVisuals made = SliderVisuals.Attach(bar, bar.lowValue, bar.highValue);
+                bar.RegisterValueChangedCallback(evt => made.Show(evt.newValue));
+                visuals = made;
             }
             else
             {
@@ -162,6 +166,9 @@ namespace Veneer
                 var bar = new Slider(low, high);
                 bar.BindProperty(property);
                 slider = bar;
+                SliderVisuals made = SliderVisuals.Attach(bar, bar.lowValue, bar.highValue);
+                bar.RegisterValueChangedCallback(evt => made.Show(evt.newValue));
+                visuals = made;
             }
 
             number.tooltip = property.tooltip;
@@ -188,7 +195,207 @@ namespace Veneer
                 block.Add(ends);
             }
 
-            VeneerBinding.Hook(block, property, title, block, null);
+            // The fill follows the property itself (not the slider's value), so Undo, Redo, prefab reverts and the first bind are covered.
+            VeneerBinding.Hook(block, property, title, block, () => visuals.Sync(property));
+            return block;
+        }
+
+        /// <summary>
+        /// The moving parts a <see cref="SliderRow"/> adds to a stock slider: a fill inside the track whose width follows the value, and the
+        /// <c>vn-slider--held</c> class while the pointer is down on the slider (the style sheet grows and lights the handle with it; the
+        /// stock slider does not reliably expose <c>:active</c> on its handle). Nothing runs per frame: every update is an event.
+        /// </summary>
+        private sealed class SliderVisuals
+        {
+            private const string TrackerClass = "unity-base-slider__tracker";
+            private const string HeldClass = "vn-slider--held";
+
+            private readonly VisualElement slider;
+            private readonly VisualElement fill;
+            private readonly float low;
+            private readonly float high;
+            private float shown = -1f;
+
+            private SliderVisuals(VisualElement slider, VisualElement fill, float low, float high)
+            {
+                this.slider = slider;
+                this.fill = fill;
+                this.low = low;
+                this.high = high;
+            }
+
+            /// <summary>Marks the slider, adds the fill to its track (when the stock slider has one) and starts following the pointer.</summary>
+            public static SliderVisuals Attach(VisualElement slider, float low, float high)
+            {
+                slider.AddToClassList("vn-slider");
+                VisualElement fill = null;
+                VisualElement tracker = slider.Q<VisualElement>(className: TrackerClass);
+                if (tracker != null)
+                {
+                    fill = new VisualElement { name = "vn-slider-fill", pickingMode = PickingMode.Ignore };
+                    fill.AddToClassList("vn-slider__fill");
+                    tracker.Add(fill);
+                }
+
+                var visuals = new SliderVisuals(slider, fill, low, high);
+                // Trickle phase: the slider's own dragger stops the event before it would bubble up to this element.
+                slider.RegisterCallback<PointerDownEvent>(visuals.OnPointerDown, TrickleDown.TrickleDown);
+                slider.RegisterCallback<PointerUpEvent>(visuals.OnPointerUp, TrickleDown.TrickleDown);
+                slider.RegisterCallback<PointerCancelEvent>(visuals.OnPointerCancel, TrickleDown.TrickleDown);
+                slider.RegisterCallback<PointerCaptureOutEvent>(visuals.OnCaptureOut, TrickleDown.TrickleDown);
+                slider.RegisterCallback<PointerMoveEvent>(visuals.OnPointerMove, TrickleDown.TrickleDown);
+                slider.RegisterCallback<DetachFromPanelEvent>(visuals.OnDetach);
+                return visuals;
+            }
+
+            /// <summary>Sets the fill from the property: hidden when the selected objects differ, else the property's value.</summary>
+            public void Sync(SerializedProperty property)
+            {
+                if (property.hasMultipleDifferentValues)
+                {
+                    Apply(0f);
+                    return;
+                }
+
+                Show(property.propertyType == SerializedPropertyType.Integer ? property.intValue : property.floatValue);
+            }
+
+            /// <summary>Sets the fill width for a value (clamped to the slider's ends).</summary>
+            public void Show(float value)
+            {
+                float range = high - low;
+                float fraction = range > 0f && !float.IsNaN(value) ? Mathf.Clamp01((value - low) / range) : 0f;
+                Apply(fraction);
+            }
+
+            private void Apply(float fraction)
+            {
+                if (fill == null || Mathf.Approximately(fraction, shown))
+                {
+                    return;
+                }
+
+                shown = fraction;
+                fill.style.width = new Length(fraction * 100f, LengthUnit.Percent);
+            }
+
+            private void OnPointerDown(PointerDownEvent evt)
+            {
+                if (evt.button == 0)
+                {
+                    slider.AddToClassList(HeldClass);
+                }
+            }
+
+            private void OnPointerUp(PointerUpEvent evt)
+            {
+                if (evt.button == 0)
+                {
+                    Release();
+                }
+            }
+
+            private void OnPointerCancel(PointerCancelEvent evt)
+            {
+                Release();
+            }
+
+            private void OnCaptureOut(PointerCaptureOutEvent evt)
+            {
+                Release();
+            }
+
+            // A missed release (the pointer let go outside the window) is repaired by the first move without a pressed button.
+            private void OnPointerMove(PointerMoveEvent evt)
+            {
+                if (evt.pressedButtons == 0 && slider.ClassListContains(HeldClass))
+                {
+                    Release();
+                }
+            }
+
+            private void OnDetach(DetachFromPanelEvent evt)
+            {
+                Release();
+            }
+
+            private void Release()
+            {
+                slider.RemoveFromClassList(HeldClass);
+            }
+        }
+
+        /// <summary>
+        /// A two-handle slider block that edits a Vector2 property as a lowest (x) and a highest (y) value: the label and the two numbers
+        /// ("x to y", with the unit) on the first line, the slider below it and optional end captions under it. It follows Undo, Redo, prefab
+        /// reverts and several selected objects (mixed values show "different values").
+        /// </summary>
+        /// <param name="property">A Vector2 property.</param>
+        /// <param name="label">The label; null uses the property's display name.</param>
+        /// <param name="low">The lowest value the slider can reach.</param>
+        /// <param name="high">The highest value the slider can reach.</param>
+        /// <param name="leftEnd">Caption under the slider's start; may be null.</param>
+        /// <param name="rightEnd">Caption under the slider's end; may be null.</param>
+        /// <param name="unit">Unit text after the numbers (for example <c>deg</c>); may be null.</param>
+        public static VisualElement MinMaxRow(
+            SerializedProperty property, string label = null, float low = 0f, float high = 1f, string leftEnd = null, string rightEnd = null, string unit = null)
+        {
+            SerializedProperty tracked = property.Copy();
+            if (high <= low)
+            {
+                high = low + 1f;
+            }
+
+            var block = new VisualElement();
+            block.AddToClassList("vn-slider-row");
+            block.tooltip = tracked.tooltip;
+
+            var top = new VisualElement();
+            top.AddToClassList("vn-slider-row__top");
+            var title = new Label(label ?? tracked.displayName);
+            title.AddToClassList("vn-field-row__label");
+            top.Add(title);
+            var readout = new Label();
+            readout.AddToClassList("vn-label-muted");
+            top.Add(readout);
+            block.Add(top);
+
+            Vector2 start = tracked.vector2Value;
+            var slider = new MinMaxSlider(start.x, start.y, low, high);
+            slider.AddToClassList("vn-slider-row__slider");
+            slider.tooltip = tracked.tooltip;
+            slider.RegisterValueChangedCallback(evt =>
+            {
+                tracked.vector2Value = evt.newValue;
+                tracked.serializedObject.ApplyModifiedProperties();
+            });
+            block.Add(slider);
+
+            if (!string.IsNullOrEmpty(leftEnd) || !string.IsNullOrEmpty(rightEnd))
+            {
+                var ends = new VisualElement();
+                ends.AddToClassList("vn-slider-row__ends");
+                ends.Add(VeneerStyle.MutedLabel(leftEnd ?? string.Empty));
+                ends.Add(VeneerStyle.MutedLabel(rightEnd ?? string.Empty));
+                block.Add(ends);
+            }
+
+            // The readout text is made only when the shown numbers change, so a refresh that finds the same value allocates nothing.
+            Vector2 shown = new Vector2(float.NaN, float.NaN);
+            bool mixedShown = false;
+            string suffix = string.IsNullOrEmpty(unit) ? string.Empty : " " + unit;
+            VeneerBinding.Hook(block, tracked, title, block, () =>
+            {
+                bool mixed = tracked.hasMultipleDifferentValues;
+                Vector2 value = tracked.vector2Value;
+                slider.SetValueWithoutNotify(value);
+                if (mixed != mixedShown || value != shown)
+                {
+                    mixedShown = mixed;
+                    shown = value;
+                    readout.text = mixed ? "different values" : value.x.ToString("0.##") + " to " + value.y.ToString("0.##") + suffix;
+                }
+            });
             return block;
         }
 
@@ -316,6 +523,49 @@ namespace Veneer
                 VeneerStyle.SetSegmentedSelected(group, property.hasMultipleDifferentValues ? -1 : property.enumValueIndex);
             });
             return result;
+        }
+
+        /// <summary>
+        /// A kit field row (label plus an animated <see cref="VeneerDropdown"/>) bound to an enum property. It shows the enum's display names
+        /// and writes the chosen member (for an enum with non-sequential values the real value is written, looked up through the member
+        /// names). With several selected objects that differ it shows an em dash and no selection. Undo, prefab overrides and the tooltip work
+        /// like the other rows. A <c>[Flags]</c> enum is not handled here (use <see cref="FlagChips"/> or the native field).
+        /// </summary>
+        /// <param name="property">An enum property that is not a flags enum.</param>
+        /// <param name="label">The label; null uses the property's display name.</param>
+        /// <param name="brand">Brand for icon lookup; may be null.</param>
+        public static VisualElement EnumDropdown(SerializedProperty property, string label = null, VeneerBrand brand = null)
+        {
+            if (property.propertyType != SerializedPropertyType.Enum)
+            {
+                throw new ArgumentException("EnumDropdown needs an enum property, not '" + property.propertyPath + "'.", nameof(property));
+            }
+
+            property = property.Copy();
+            string[] display = property.enumDisplayNames;
+            int[] values = EnumValueTable(property, display.Length);
+            VisualElement dropdown = VeneerDropdown.Create(display, -1, index =>
+            {
+                if (values != null)
+                {
+                    property.intValue = values[index];
+                }
+                else
+                {
+                    property.enumValueIndex = index;
+                }
+
+                property.serializedObject.ApplyModifiedProperties();
+            }, brand);
+            dropdown.tooltip = property.tooltip;
+            var field = (VeneerDropdownField)dropdown;
+
+            VisualElement row = VeneerStyle.FieldRow(label ?? property.displayName, dropdown, property.tooltip, out Label title);
+            VeneerBinding.Hook(row, property, title, row, () =>
+            {
+                field.SetValue(property.hasMultipleDifferentValues ? -1 : EnumIndexOf(property, values));
+            });
+            return row;
         }
 
         // ------------------------------------------------------------------ vectors, colours, curves
@@ -514,6 +764,7 @@ namespace Veneer
 
             // Bound here so the list also works outside VeneerInspector; binding the same object again later is harmless.
             list.Bind(property.serializedObject);
+            StabilizeListLabels(list);
             VeneerBinding.Hook(root, property, title, header, () =>
             {
                 bool mixed = property.hasMultipleDifferentValues;
@@ -528,6 +779,81 @@ namespace Veneer
         }
 
         // ------------------------------------------------------------------ internals
+
+        private const float ListLabelWidth = 112f;
+        private const long ListLabelTickMilliseconds = 80;
+        private const int ListLabelTicks = 8;
+
+        // Unity aligns the label of a PropertyField (the "Element 0" of a list row) from the size of the inspector around it, and it does so when
+        // the field is first laid out: a row added after the list was built measures a container that is not laid out yet, so its label ends up
+        // wider or narrower than its neighbours until the Inspector is opened again. The labels of the rows are therefore given one fixed width and
+        // the field's own alignment is switched off. The fix runs a few times after every change of the list's size, because the field inside a row
+        // is built a moment after the row exists.
+        private static void StabilizeListLabels(ListView list)
+        {
+            int remaining = 0;
+            IVisualElementScheduledItem job = null;
+
+            void Fix()
+            {
+                list.Query<Label>(className: "unity-base-field__label").ForEach(label =>
+                {
+                    VisualElement field = label.parent;
+                    if (field == null || !field.ClassListContains("unity-base-field__aligned") || IsInsideCompositeField(field, list))
+                    {
+                        return;
+                    }
+
+                    field.RemoveFromClassList("unity-base-field__aligned");
+                    label.style.minWidth = ListLabelWidth;
+                    label.style.width = ListLabelWidth;
+                    label.style.flexShrink = 0f;
+                    label.style.flexGrow = 0f;
+                });
+            }
+
+            void Tick()
+            {
+                Fix();
+                remaining--;
+                if (remaining <= 0 && job != null)
+                {
+                    job.Pause();
+                }
+            }
+
+            list.RegisterCallback<GeometryChangedEvent>(evt =>
+            {
+                remaining = ListLabelTicks;
+                if (job == null)
+                {
+                    job = list.schedule.Execute(Tick).Every(ListLabelTickMilliseconds);
+                }
+                else
+                {
+                    job.Resume();
+                }
+            });
+            list.RegisterCallback<DetachFromPanelEvent>(evt =>
+            {
+                remaining = 0;
+                job?.Pause();
+            });
+        }
+
+        // A vector or rect field has labels for its parts; only the label of a field of its own is fixed.
+        private static bool IsInsideCompositeField(VisualElement field, VisualElement stopAt)
+        {
+            for (VisualElement current = field.parent; current != null && current != stopAt; current = current.parent)
+            {
+                if (current.ClassListContains("unity-composite-field") || current.ClassListContains("unity-base-compositefield__field"))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         private static VisualElement BoundRow(SerializedProperty property, string label, VisualElement field)
         {
@@ -589,6 +915,54 @@ namespace Veneer
             property.serializedObject.ApplyModifiedProperties();
             list.ClearSelection();
             list.RefreshItems();
+        }
+
+        // The stored value of each display name, found through the C# enum (names are parsed, so the order of the lists does not matter).
+        // Null when the enum type cannot be resolved or a value does not fit an int: the member index is then the stored value.
+        private static int[] EnumValueTable(SerializedProperty property, int count)
+        {
+            Type enumType = VeneerFieldInfo.GetValueType(property);
+            string[] names = property.enumNames;
+            if (enumType == null || !enumType.IsEnum || names.Length != count)
+            {
+                return null;
+            }
+
+            var table = new int[count];
+            bool sequential = true;
+            try
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    table[i] = Convert.ToInt32(Enum.Parse(enumType, names[i]));
+                    sequential &= table[i] == i;
+                }
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is OverflowException || exception is FormatException)
+            {
+                return null;
+            }
+
+            return sequential ? null : table;
+        }
+
+        private static int EnumIndexOf(SerializedProperty property, int[] values)
+        {
+            if (values == null)
+            {
+                return property.enumValueIndex;
+            }
+
+            int stored = property.intValue;
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (values[i] == stored)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         private static void CollectFlagBits(SerializedProperty property, List<int> bits, List<string> names)

@@ -1,0 +1,502 @@
+/*
+ * Veneer Theme Editor - extra rules on top of Veneer.uss. Only what the kit lacks: panes, the system list rows, the sample frame and the
+ * override rows of the properties pane. Colours come from the kit variables (--vn-*).
+ *
+ * Layout rules (the widths of the two side panes and the minimum of the sample are set in code, VeneerThemeEditorWindow.cs):
+ *   body      row; fills the window content; min-height 0 so the panes can never push it out of the window.
+ *   side pane fixed preferred width (inline), flex-grow 0, may shrink to its minimum, never grows.
+ *   centre    flex-grow 1 with flex-basis 0: the ONLY box that takes extra width.
+ *   scroll    every pane's content is a vertical ScrollView; the content container is 100% wide, rows never widen it.
+ */
+
+.vnte-body {
+    flex-direction: row;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 0;
+    min-height: 0;
+}
+
+.vnte-pane {
+    flex-direction: column;
+    flex-shrink: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 6px 8px;
+    overflow: hidden;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-card);
+}
+
+/* the list and the properties: a fixed width, they never grow */
+.vnte-pane.vnte-pane--side {
+    flex-grow: 0;
+}
+
+/* the live sample: takes all the remaining width */
+.vnte-pane.vnte-pane--centre {
+    flex-grow: 1;
+    flex-basis: 0;
+}
+
+/* the draggable divider between two panes */
+.vnte-handle {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 6px;
+    cursor: resize-horizontal;
+    border-radius: 3px;
+    background-color: transparent;
+}
+
+.vnte-handle:hover,
+.vnte-handle.vnte-handle--drag {
+    background-color: var(--vn-accent-soft);
+}
+
+.vnte-pane__title {
+    flex-shrink: 0;
+    margin: 0 0 6px 0;
+}
+
+.vnte-search {
+    flex-shrink: 0;
+    margin: 0 0 6px 0;
+}
+
+.vnte-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 0;
+    min-width: 0;
+}
+
+.vnte-body-column {
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.vnte-note {
+    flex-shrink: 0;
+    margin: 0 0 6px 0;
+    white-space: normal;
+}
+
+/* a row of the system list */
+.vnte-row {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+    height: 26px;
+    min-height: 26px;
+    margin: 0 0 1px 0;
+    padding: 0 6px 0 6px;
+    border-radius: 4px;
+    border-left-width: 2px;
+    border-left-color: transparent;
+    background-color: transparent;
+}
+
+.vnte-row > * { margin-right: 6px; }
+.vnte-row:hover { background-color: var(--vn-hover); }
+
+.vnte-row.vnte-row--selected,
+.vnte-row.vnte-row--selected:hover {
+    background-color: var(--vn-accent-soft);
+    border-left-color: var(--vn-accent);
+}
+
+.vnte-row__logo {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.vnte-row__label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-left: 0;
+    padding: 0;
+    color: var(--vn-text);
+    -unity-text-align: middle-left;
+}
+
+.vnte-row__dot {
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+}
+
+
+/* the live sample */
+.vnte-sample__caption {
+    flex-shrink: 0;
+    margin: 0 0 6px 0;
+    white-space: normal;
+}
+
+.vnte-sample__scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 0;
+    min-width: 0;
+}
+
+.vnte-sample__host {
+    flex-shrink: 0;
+    min-width: 0;
+    padding: 4px;
+}
+
+/* Two classes so these win over the kit's own .vn-root rule (padding, label width) on the same element. */
+.vn-root.vnte-sample__root {
+    width: 100%;
+    max-width: 600px;
+    min-width: 0;
+    align-self: center;
+    padding: 8px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    /* a narrower label column than the kit's 132px, so a field next to it (the picture slot) keeps a usable width in a narrow window */
+    --vn-label-width: 104px;
+}
+
+.vnte-sample__root .vn-card,
+.vnte-sample__root .vn-field-row {
+    min-width: 0;
+}
+
+/* the picture slot of the sample must not be crushed by its thumbnail and ping button */
+.vnte-sample__root .unity-object-field {
+    min-width: 110px;
+}
+
+/* properties: one setting = a head line (Override box + label) and its control */
+.vnte-setting {
+    flex-shrink: 0;
+    min-width: 0;
+    margin: 0 0 6px 0;
+}
+
+.vnte-setting__head {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+    min-height: 24px;
+}
+
+.vnte-setting__override {
+    flex-grow: 0;
+    flex-shrink: 0;
+    margin: 0 6px 0 0;
+}
+
+/* the label: a fixed column beside a colour field, the rest of the line above a stacked control; always one line with an ellipsis */
+.vnte-setting__label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    color: var(--vn-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+}
+
+.vnte-setting__label.vnte-setting__label--fixed {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 110px;
+    min-width: 110px;
+}
+
+.vnte-setting__color {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 240px;
+    margin: 0;
+}
+
+/* a picture: thumbnail and object field on one line under the label */
+.vnte-setting__body {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+    margin: 2px 0 0 0;
+}
+
+.vnte-setting__object {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 240px;
+    margin: 0;
+}
+
+.vnte-thumb {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    margin: 0 6px 0 0;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* a segmented choice: its own line, as wide as the pane, equal buttons whose short text is cut with an ellipsis if ever needed */
+.vnte-choice.vn-segmented {
+    align-self: stretch;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 2px 0 0 0;
+}
+
+.vnte-choice > .vn-segmented__button {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 0;
+    padding: 0 4px;
+    overflow: hidden;
+}
+
+.vnte-choice .vn-segmented__label {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vnte-path {
+    flex-shrink: 0;
+    margin: 0 0 6px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.vnte-path:hover {
+    color: var(--vn-accent);
+}
+
+.vnte-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    margin: 6px 0 0 0;
+}
+
+.vnte-actions > * { margin-right: 6px; }
+
+/* a group header of the list (Global, Systems, Themes); the Themes one carries the New theme button */
+.vnte-group {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+    min-height: 24px;
+    margin: 6px 0 2px 0;
+    padding: 0 2px;
+}
+
+.vnte-group__label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    font-size: 10px;
+    color: var(--vn-text-muted);
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+}
+
+.vnte-group__button {
+    flex-grow: 0;
+    flex-shrink: 0;
+    margin: 0;
+}
+
+/* the name of a custom theme */
+.vnte-setting__text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 240px;
+    margin: 0;
+}
+
+/* the muted word that names a slider value (Square, Kit default, Tight, ...) */
+.vnte-setting__caption {
+    flex-grow: 0;
+    flex-shrink: 0;
+    margin: 0 0 0 6px;
+}
+
+/* a scale: slider, number and reset on one line under the label */
+.vnte-scale {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+    margin: 2px 0 0 0;
+}
+
+.vnte-scale__slider {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0 6px 0 0;
+}
+
+.vnte-scale__field {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 52px;
+    margin: 0 6px 0 0;
+}
+
+.vnte-scale__reset {
+    flex-grow: 0;
+    flex-shrink: 0;
+    margin: 0;
+}
+
+/* the one-line motion hint under the sample's banner */
+.vnte-sample__root .vnte-sample__hint {
+    flex-shrink: 0;
+    margin: 6px 0 4px 2px;
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------ the States card of the sample */
+
+.vnte-sample__root .vnte-states__note {
+    margin: 0 0 2px 0;
+    white-space: normal;
+}
+
+.vnte-sample__root .vnte-states__title {
+    margin: 8px 0 4px 0;
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+/* a wrapping line of states; each state is a control with its caption under it */
+.vnte-states {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.vnte-state {
+    flex-direction: column;
+    align-items: flex-start;
+    flex-shrink: 0;
+    margin: 0 12px 6px 0;
+}
+
+.vnte-sample__root .vnte-state__caption {
+    margin: 3px 0 0 1px;
+    font-size: 10px;
+}
+
+/* a dropdown or a text field inside a state: a fixed width, so the three look like one family */
+.vnte-state > .vnte-state__wide {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 96px;
+    min-width: 96px;
+    margin: 0;
+}
+
+/*
+ * Hand-drawn hover, pressed and focus looks. USS cannot force a pseudo-state, so these repeat the kit's own :hover, :active and :focus
+ * rules (Veneer.uss, VeneerDropdown.uss) under a class. The extra .vnte-sample__root keeps them heavier than the kit's rules.
+ */
+.vnte-sample__root .vn-button.vnte-fake-hover {
+    background-color: var(--vn-accent-soft);
+    border-color: var(--vn-accent-line);
+}
+
+.vnte-sample__root .vn-button.vn-button--primary.vnte-fake-hover {
+    background-color: var(--vn-accent-line);
+}
+
+.vnte-sample__root .vn-button.vnte-fake-pressed,
+.vnte-sample__root .vn-button.vn-button--primary.vnte-fake-pressed {
+    background-color: var(--vn-pressed);
+    border-color: var(--vn-accent-line);
+}
+
+.vnte-sample__root .vn-icon-button.vnte-fake-hover {
+    background-color: var(--vn-accent-soft);
+    border-color: var(--vn-accent-line);
+}
+
+.vnte-sample__root .vn-icon-button.vnte-fake-hover > .vn-icon {
+    -unity-background-image-tint-color: var(--vn-text);
+}
+
+.vnte-sample__root .vn-icon-button.vnte-fake-pressed {
+    background-color: var(--vn-pressed);
+    border-color: var(--vn-accent-line);
+}
+
+.vnte-sample__root .vn-icon-button.vnte-fake-pressed > .vn-icon {
+    -unity-background-image-tint-color: var(--vn-accent);
+}
+
+.vnte-sample__root .vn-chip.vnte-fake-hover {
+    background-color: var(--vn-hover);
+    border-color: var(--vn-accent-line);
+}
+
+.vnte-sample__root .vn-chip.vnte-fake-pressed {
+    background-color: var(--vn-pressed);
+    border-color: var(--vn-accent-line);
+}
+
+.vnte-sample__root .vn-dd.vnte-fake-hover {
+    background-color: var(--vn-hover);
+}
+
+.vnte-sample__root .vn-dd.vnte-fake-hover > .vn-dd__chevron {
+    -unity-background-image-tint-color: var(--vn-text);
+}
+
+.vn-root.vnte-sample__root .unity-base-text-field .unity-base-text-field__input.vnte-fake-focus {
+    border-color: var(--vn-accent);
+}
+
+/* a disabled text field of the States card must visibly fade, whatever the stock theme does */
+.vnte-sample__root .vnte-state > .unity-base-text-field:disabled {
+    opacity: 0.45;
+}
+
+/* Veneer.uss has no :disabled rule for chips (only for buttons, icon buttons and dropdowns), so the disabled chip of the States card gets the
+   same fade by hand; a kit rule `.vn-chip:disabled { opacity: 0.4; }` would make this one unnecessary. */
+.vnte-sample__root .vnte-state > .vn-chip:disabled {
+    opacity: 0.4;
+}

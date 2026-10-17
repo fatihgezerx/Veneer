@@ -1,0 +1,362 @@
+/*
+ * Veneer Inspector Designer - extra rules on top of Veneer.uss. Only what the kit lacks: panes, the flat tree/field rows, the drop line,
+ * the drag ghost and the icon picker grid. Colours come from the kit variables (--vn-*).
+ */
+
+/* the three columns: Fields | Layout | Properties. Widths of the side panes are set in code (VeneerDesignerWindow.Panes.cs). */
+.vnd-main {
+    flex-direction: row;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 0;
+    min-height: 0;
+    padding: 0 3px 3px 3px;
+}
+
+/* a pane never grows by itself; its content is a scroller, so nothing is wider or taller than the pane */
+.vnd-pane {
+    flex-direction: column;
+    flex-grow: 0;
+    flex-shrink: 0;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 6px 8px;
+    overflow: hidden;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-card);
+}
+
+/* titles, bars and buttons keep their height; only the scrolling parts give way */
+.vnd-pane > * { flex-shrink: 0; }
+.vnd-pane > .vnd-scroll,
+.vnd-pane > .vnd-split { flex-shrink: 1; }
+
+/* fixed-width panes: flex-shrink only matters when the window is below its minimum size */
+.vnd-pane--side { flex-shrink: 1; }
+
+/* the centre pane takes whatever width the side panes leave */
+.vnd-pane--centre {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+}
+
+.vnd-pane__bar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    flex-shrink: 0;
+    margin: 0 0 6px 0;
+}
+
+.vnd-pane__bar > * { margin-right: 4px; }
+
+/* drag handles between the panes (sizes are set in code) */
+.vnd-splitter {
+    flex-shrink: 0;
+    flex-grow: 0;
+    border-radius: 3px;
+    background-color: transparent;
+}
+
+.vnd-splitter--columns { cursor: split-resize-left-right; }
+.vnd-splitter--rows { cursor: split-resize-up-down; }
+.vnd-splitter:hover { background-color: var(--vn-hover); }
+.vnd-splitter.vnd-splitter--active,
+.vnd-splitter.vnd-splitter--active:hover { background-color: var(--vn-accent-line); }
+
+/* the centre pane's column: tree on top (default 55 %), preview below (default 45 %), both at least 120 px */
+.vnd-split {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 246px;
+}
+
+.vnd-tree-host {
+    flex-grow: 55;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 120px;
+    border-radius: 5px;
+    background-color: var(--vn-track);
+}
+
+.vnd-preview-group {
+    flex-grow: 45;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 126px;
+}
+
+/* every scrolling area: no preferred height of its own, so it takes the room that is left and scrolls the rest */
+.vnd-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 0;
+    min-width: 0;
+}
+
+.vnd-tree-empty {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+/* a row of the flat tree or of the field list */
+.vnd-row {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    height: 22px;
+    min-height: 22px;
+    margin: 0;
+    padding: 0 4px 0 6px;
+    border-radius: 4px;
+    border-left-width: 2px;
+    border-left-color: transparent;
+    background-color: transparent;
+}
+
+.vnd-row > * { margin-right: 6px; }
+.vnd-row:hover { background-color: var(--vn-hover); }
+
+.vnd-row.vnd-row--selected,
+.vnd-row.vnd-row--selected:hover {
+    background-color: var(--vn-accent-soft);
+    border-left-color: var(--vn-accent);
+}
+
+.vnd-row.vnd-row--drop,
+.vnd-row.vnd-row--drop:hover {
+    background-color: var(--vn-pressed);
+    border-left-color: var(--vn-accent);
+}
+
+.vnd-row.vnd-row--missing > .vnd-row__label { color: var(--vn-error); }
+
+.vnd-row__label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-left: 0;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--vn-text);
+    -unity-text-align: middle-left;
+}
+
+.vnd-row__hint {
+    flex-shrink: 1;
+    max-width: 45%;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    color: var(--vn-text-muted);
+    -unity-text-align: middle-right;
+}
+
+.vnd-row__mark {
+    flex-shrink: 1;
+    max-width: 45%;
+    padding: 0 6px;
+    height: 14px;
+    border-radius: 7px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    -unity-text-align: middle-center;
+}
+
+.vnd-mark--placed { color: var(--vn-ok); background-color: var(--vn-ok-bg); }
+.vnd-mark--hidden { color: var(--vn-idle); background-color: var(--vn-idle-bg); }
+.vnd-mark--unplaced { color: var(--vn-warn); background-color: var(--vn-warn-bg); }
+.vnd-mark--partly { color: var(--vn-accent); background-color: var(--vn-accent-soft); }
+
+/* expand arrow of a nested struct in the Fields pane */
+.vnd-row > .vnd-row__arrow {
+    width: 16px;
+    min-width: 16px;
+    height: 18px;
+    margin-right: 2px;
+    padding: 0;
+}
+
+/* system items list under the fields */
+.vnd-items { margin-top: 6px; flex-shrink: 0; }
+
+.vnd-items__scroll {
+    flex-grow: 0;
+    flex-shrink: 0;
+    max-height: 150px;
+    border-radius: 5px;
+    background-color: rgba(0, 0, 0, 0.14);
+}
+
+.vnd-row__toggle { flex-shrink: 0; margin: 0; }
+
+.vnd-rename {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 40px;
+    margin: 0;
+}
+
+.vnd-drop-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    border-radius: 1px;
+    background-color: var(--vn-accent);
+    display: none;
+}
+
+.vnd-ghost {
+    position: absolute;
+    padding: 2px 10px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: var(--vn-accent-line);
+    background-color: var(--vn-accent-soft);
+    color: var(--vn-text);
+    font-size: 11px;
+    opacity: 0.92;
+    display: none;
+}
+
+/* preview: a scroller under the drag handle; its content is as wide as the box and never wider */
+.vnd-preview {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 120px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+}
+
+.vnd-preview__host {
+    padding: 6px;
+    min-width: 0;
+}
+
+.vnd-preview__root {
+    width: 100%;
+    min-width: 0;
+}
+
+/* long texts wrap, rows give the label column what they must and let the control shrink */
+.vnd-preview__root .vn-hint__text { min-width: 0; }
+.vnd-preview__root .vn-field-row__control { min-width: 0; }
+.vnd-preview__root .vn-tabs { flex-wrap: wrap; }
+.vnd-preview__root .unity-object-field > .unity-base-field__input { min-width: 160px; }
+
+/* properties */
+
+.vnd-props__title {
+    flex-shrink: 0;
+    margin: 0 0 6px 0;
+}
+
+.vnd-note {
+    margin: 0 0 6px 0;
+    white-space: normal;
+}
+
+/* the Properties pane is narrow: a shorter label column (the kit's rows and stock labels read this variable) */
+.vnd-props { --vn-label-width: 110px; }
+
+/* rows, cards and hints keep their natural height, the pane scrolls */
+.vnd-props .vn-card,
+.vnd-props .vn-field-row,
+.vnd-props .vn-hint { flex-shrink: 0; }
+
+.vnd-props .vn-hint__text { min-width: 0; }
+
+/* the control takes the rest of the row whatever its content measures (a long text must not widen it) */
+.vnd-props .vn-field-row__control {
+    flex-basis: 0;
+    min-width: 0;
+}
+
+/* colour, object and popup fields are silly when stretched over a wide pane */
+.vnd-props .vn-field-row__control.vnd-control--capped { max-width: 260px; }
+
+/* a note's text: at least four lines, wraps at the control's edge */
+.vnd-props .vn-field-row__control.vnd-control--multiline {
+    min-height: 80px;
+    white-space: normal;
+}
+
+.vnd-props .vnd-control--multiline > .unity-base-text-field__input {
+    min-height: 80px;
+    white-space: normal;
+}
+
+/* segmented choices: stay as wide as their buttons, but wrap onto a second line instead of overflowing a narrow pane */
+.vnd-props .vn-field-row > .vn-segmented {
+    flex-grow: 0;
+    flex-shrink: 1;
+    flex-basis: auto;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* long values (field paths in the show-only-when popups, object names) end with an ellipsis */
+.vnd-props .unity-base-field__input { min-width: 0; }
+.vnd-props .unity-base-popup-field__text,
+.vnd-props .unity-object-field-display__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vnd-icon-row {
+    flex-direction: row;
+    align-items: center;
+    margin: 0 0 4px 0;
+}
+
+.vnd-icon-row > * { margin-right: 6px; }
+.vnd-icon-row > Button { flex-shrink: 0; }
+
+/* the kit icon picker */
+
+.vnd-icons {
+    margin: 0 0 6px 0;
+}
+
+.vnd-icons__scroll {
+    height: 150px;
+    margin: 4px 0 0 0;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+}
+
+.vnd-icons__grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 4px;
+}
+
+.vnd-icon-cell {
+    margin: 0 2px 2px 0;
+}

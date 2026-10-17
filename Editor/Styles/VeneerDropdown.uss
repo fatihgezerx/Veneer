@@ -1,0 +1,196 @@
+/*
+ * Veneer - animated dropdown (Controls/VeneerDropdown.cs).
+ *
+ * .vn-dd is the button (it looks like the kit's other controls), .vn-dd-popup is the list that is added to the top of the panel. The popup
+ * root copies the classes and sheets of the .vn-root the button sits in, so every --vn-* variable (accent, theme, density, motion) applies.
+ * The popup's own opaque colour is --vn-dd-bg (a theme sheet may override it). The opening and closing motion of the popup itself is written
+ * in code (it multiplies the durations by the motion setting); the chevron and the staggered fade of the items are written here, and the
+ * vn-motion--off|subtle|lively classes of the root change them at the end of this file.
+ */
+
+/* ------------------------------------------------------------------ button */
+
+.vn-dd {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 1;
+    min-width: 60px;
+    height: var(--vn-ctl-h);
+    margin: 0;
+    padding-top: 0;
+    padding-right: 6px;
+    padding-bottom: 0;
+    padding-left: var(--vn-pad-x);
+    border-width: 1px;
+    border-radius: var(--vn-radius-md);
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    color: var(--vn-text);
+    transition-property: background-color, border-color;
+    transition-duration: 0.1s;
+}
+
+.vn-dd:hover { background-color: var(--vn-hover); }
+.vn-dd:active { background-color: var(--vn-pressed); }
+.vn-dd:focus { border-color: var(--vn-accent-line); }
+.vn-dd:disabled { opacity: 0.4; }
+
+.vn-dd.vn-dd--open {
+    border-color: var(--vn-accent-line);
+    background-color: var(--vn-hover);
+}
+
+.vn-dd > .vn-dd__label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    color: var(--vn-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+}
+
+.vn-dd.vn-dd--empty > .vn-dd__label { color: var(--vn-text-muted); }
+
+.vn-dd > .vn-dd__icon {
+    margin-right: 6px;
+    -unity-background-image-tint-color: var(--vn-accent);
+}
+
+.vn-dd > .vn-dd__chevron {
+    margin-left: 4px;
+    rotate: 0deg;
+    transition-property: rotate, -unity-background-image-tint-color;
+    transition-duration: 0.28s, 0.1s;
+    transition-timing-function: ease-out-back, ease;
+}
+
+.vn-dd:hover > .vn-dd__chevron { -unity-background-image-tint-color: var(--vn-text); }
+
+.vn-dd.vn-dd--open > .vn-dd__chevron {
+    rotate: 180deg;
+    -unity-background-image-tint-color: var(--vn-accent);
+}
+
+/* ------------------------------------------------------------------ popup */
+
+.vn-root.vn-dd-popup {
+    --vn-dd-bg: #262626;
+
+    position: absolute;
+    left: 0;
+    top: 0;
+    flex-direction: column;
+    flex-grow: 0;
+    flex-shrink: 0;
+    height: auto;
+    min-width: 0;
+    max-height: 260px;
+    margin: 0;
+    padding: 3px;
+    overflow: hidden;
+    border-width: 1px;
+    border-radius: var(--vn-radius-lg);
+    border-color: var(--vn-accent-line);
+    background-color: var(--vn-dd-bg);
+}
+
+.vn-root.vn-root--light.vn-dd-popup { --vn-dd-bg: #EDEDED; }
+
+.vn-dd-popup > .vn-dd-popup__list {
+    flex-grow: 0;
+    flex-shrink: 1;
+    margin: 0;
+}
+
+.vn-dd-popup .unity-scroller__low-button,
+.vn-dd-popup .unity-scroller__high-button {
+    display: none;
+}
+
+/* ------------------------------------------------------------------ items */
+
+.vn-dd-item {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    height: var(--vn-ctl-h);
+    margin: 0;
+    padding-top: 0;
+    padding-right: 6px;
+    padding-bottom: 0;
+    padding-left: 8px;
+    border-radius: var(--vn-radius-sm);
+    background-color: transparent;
+    opacity: 0;
+    transition-property: opacity, background-color;
+    transition-duration: 0.16s, 0.06s;
+    transition-delay: 0s, 0s;
+}
+
+.vn-dd-popup.vn-dd-popup--open .vn-dd-item { opacity: 1; }
+
+.vn-dd-item > .vn-dd-item__label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    color: var(--vn-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+}
+
+.vn-dd-item > .vn-icon { margin-right: 6px; }
+
+.vn-dd-item > .vn-dd-item__check {
+    margin-right: 0;
+    margin-left: 6px;
+    opacity: 0;
+    -unity-background-image-tint-color: var(--vn-accent);
+}
+
+.vn-dd-item.vn-dd-item--active { background-color: var(--vn-hover); }
+.vn-dd-item.vn-dd-item--active > .vn-icon { -unity-background-image-tint-color: var(--vn-text); }
+
+.vn-dd-item.vn-dd-item--selected { background-color: var(--vn-accent-soft); }
+.vn-dd-item.vn-dd-item--selected > .vn-dd-item__check { opacity: 1; }
+.vn-dd-item.vn-dd-item--selected > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
+.vn-dd-item.vn-dd-item--selected.vn-dd-item--active { background-color: var(--vn-pressed); }
+
+/* the items fade in one after the other (a class per index; later indexes share the last delay) */
+.vn-dd-item.vn-dd-item--d1 { transition-delay: 0.018s, 0s; }
+.vn-dd-item.vn-dd-item--d2 { transition-delay: 0.036s, 0s; }
+.vn-dd-item.vn-dd-item--d3 { transition-delay: 0.054s, 0s; }
+.vn-dd-item.vn-dd-item--d4 { transition-delay: 0.072s, 0s; }
+.vn-dd-item.vn-dd-item--d5 { transition-delay: 0.090s, 0s; }
+.vn-dd-item.vn-dd-item--d6 { transition-delay: 0.108s, 0s; }
+.vn-dd-item.vn-dd-item--d7 { transition-delay: 0.126s, 0s; }
+.vn-dd-item.vn-dd-item--d8 { transition-delay: 0.144s, 0s; }
+.vn-dd-item.vn-dd-item--d9 { transition-delay: 0.162s, 0s; }
+
+/* ------------------------------------------------------------------ motion setting of the root (last, so these win over the rules above) */
+
+.vn-motion--off .vn-dd > .vn-dd__chevron { transition-duration: 0s; }
+
+.vn-motion--off.vn-dd-popup .vn-dd-item.vn-dd-item {
+    opacity: 1;
+    transition-duration: 0s;
+    transition-delay: 0s;
+}
+
+.vn-motion--subtle .vn-dd > .vn-dd__chevron { transition-duration: 0.16s, 0.1s; }
+
+.vn-motion--subtle.vn-dd-popup .vn-dd-item.vn-dd-item {
+    transition-duration: 0.1s, 0.06s;
+    transition-delay: 0s, 0s;
+}
+
+.vn-motion--lively .vn-dd > .vn-dd__chevron { transition-duration: 0.4s, 0.1s; }
+
+.vn-motion--lively.vn-dd-popup .vn-dd-item.vn-dd-item { transition-duration: 0.24s, 0.06s; }

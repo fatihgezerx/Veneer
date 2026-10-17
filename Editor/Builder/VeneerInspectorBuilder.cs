@@ -19,6 +19,7 @@ namespace Veneer
     public sealed class VeneerInspectorBuilder
     {
         private const long TickMilliseconds = 200;
+        private const double RevealGraceSeconds = 0.3;
 
         private readonly SerializedObject serializedObject;
         private readonly VisualElement root;
@@ -27,6 +28,7 @@ namespace Veneer
         private readonly List<PillBinding> pills = new List<PillBinding>(2);
         private readonly List<LiveBinding> lives = new List<LiveBinding>(2);
         private readonly List<Rule> rules = new List<Rule>(8);
+        private readonly List<Action> polls = new List<Action>(2);
 
         private VeneerBrand brand;
         private VisualElement headerRight;
@@ -34,6 +36,7 @@ namespace Veneer
         private IVisualElementScheduledItem tick;
         private int tabCounter;
         private bool finished;
+        private double attachedAt = double.PositiveInfinity; // EditorApplication.timeSinceStartup of the last attach of the root (never: infinity)
 
         /// <summary>Creates a builder.</summary>
         /// <param name="serializedObject">The data the fields edit.</param>
@@ -282,6 +285,12 @@ namespace Veneer
                 return problem;
             }
 
+            // A plain enum (no flags, no drawer, no attribute that needs one) is drawn as the animated dropdown; anything else stays native.
+            if (VeneerDropdown.IsPlainEnum(property, keepDecorators))
+            {
+                return Add(VeneerControls.EnumDropdown(property, label, brand));
+            }
+
             var field = label == null ? new PropertyField(property) : new PropertyField(property, label);
             if (!keepDecorators)
             {
@@ -339,6 +348,32 @@ namespace Veneer
         {
             SerializedProperty property = Find(path, out VisualElement problem);
             return property == null ? problem : Add(VeneerControls.EnumSegmented(property, icons, tooltips, label, brand));
+        }
+
+        /// <summary>
+        /// Adds an animated dropdown row for an enum; see <see cref="VeneerControls.EnumDropdown"/>. A property that is not an enum is
+        /// added with <see cref="Field"/>, and a flags enum as chips (<see cref="Flags"/>).
+        /// </summary>
+        public VisualElement Dropdown(string path, string label = null)
+        {
+            SerializedProperty property = Find(path, out VisualElement problem);
+            if (property == null)
+            {
+                return problem;
+            }
+
+            if (property.propertyType != SerializedPropertyType.Enum)
+            {
+                return Field(path, label);
+            }
+
+            Type enumType = VeneerFieldInfo.GetValueType(property);
+            if (enumType != null && Attribute.IsDefined(enumType, typeof(FlagsAttribute), false))
+            {
+                return Flags(path);
+            }
+
+            return Add(VeneerControls.EnumDropdown(property, label, brand));
         }
 
         /// <summary>Adds an object slot with a thumbnail and a ping button; see <see cref="VeneerControls.ObjectSlot"/>.</summary>
@@ -425,6 +460,25 @@ namespace Veneer
             return strip;
         }
 
+        /// <summary>
+        /// Runs <paramref name="action"/> on the shared 200 ms scheduler, with the pills and polled rules (paused while the root is not on a
+        /// panel, like them). The first run is on the first tick, not at once. An action that throws is logged once and removed.
+        /// Allocate nothing inside it: it runs five times a second.
+        /// </summary>
+        public void Poll(Action action)
+        {
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
+            }
+
+            polls.Add(action);
+            if (finished && tick == null)
+            {
+                StartTick();
+            }
+        }
+
         // ------------------------------------------------------------------ rules
 
         /// <summary>
@@ -466,22 +520,33 @@ namespace Veneer
             }
 
             finished = true;
+            root.RegisterCallback<AttachToPanelEvent>(OnRootAttachedForMotion);
+            if (root.panel != null)
+            {
+                attachedAt = EditorApplication.timeSinceStartup;
+            }
+
             root.Bind(serializedObject);
             if (rules.Count > 0)
             {
                 root.TrackSerializedObjectValue(serializedObject, changed => EvaluateRules(false));
             }
 
-            bool needsTick = pills.Count > 0 || lives.Count > 0 || HasPolledRule();
+            bool needsTick = pills.Count > 0 || lives.Count > 0 || polls.Count > 0 || HasPolledRule();
             if (needsTick)
             {
-                tick = root.schedule.Execute(Tick).Every(TickMilliseconds);
-                root.RegisterCallback<AttachToPanelEvent>(OnAttached);
-                root.RegisterCallback<DetachFromPanelEvent>(OnDetached);
+                StartTick();
             }
 
             EvaluateRules(false);
             RefreshPills();
+        }
+
+        private void StartTick()
+        {
+            tick = root.schedule.Execute(Tick).Every(TickMilliseconds);
+            root.RegisterCallback<AttachToPanelEvent>(OnAttached);
+            root.RegisterCallback<DetachFromPanelEvent>(OnDetached);
         }
 
         // ------------------------------------------------------------------ internals
@@ -559,6 +624,24 @@ namespace Veneer
             }
 
             EvaluateRules(true);
+            RunPolls();
+        }
+
+        private void RunPolls()
+        {
+            for (int i = 0; i < polls.Count; i++)
+            {
+                try
+                {
+                    polls[i]();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                    polls.RemoveAt(i);
+                    i--;
+                }
+            }
         }
 
         private void RefreshPills()
@@ -590,7 +673,7 @@ namespace Veneer
                 {
                     string text = rule.Text();
                     bool show = !string.IsNullOrEmpty(text);
-                    VeneerStyle.SetDisplay(rule.Element, show);
+                    ApplyRuleDisplay(rule.Element, show);
                     if (show && !string.Equals(rule.TextLabel.text, text, StringComparison.Ordinal))
                     {
                         rule.TextLabel.text = text;
@@ -598,9 +681,26 @@ namespace Veneer
                 }
                 else
                 {
-                    VeneerStyle.SetDisplay(rule.Element, rule.Visible());
+                    ApplyRuleDisplay(rule.Element, rule.Visible());
                 }
             }
+        }
+
+        // Shows or hides a rule's element; an element that goes from hidden to visible after the first 300 ms on a panel fades in
+        // (VeneerStyle.Reveal does nothing when motion is off). Hiding is instant. Allocation free unless a reveal starts.
+        private void ApplyRuleDisplay(VisualElement element, bool show)
+        {
+            bool wasHidden = show && element.style.display.value == DisplayStyle.None;
+            VeneerStyle.SetDisplay(element, show);
+            if (wasHidden && EditorApplication.timeSinceStartup - attachedAt > RevealGraceSeconds)
+            {
+                VeneerStyle.Reveal(element);
+            }
+        }
+
+        private void OnRootAttachedForMotion(AttachToPanelEvent evt)
+        {
+            attachedAt = EditorApplication.timeSinceStartup;
         }
 
         private static bool Matches(SerializedProperty property, object value)

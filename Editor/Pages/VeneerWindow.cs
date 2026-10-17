@@ -26,6 +26,13 @@ namespace Veneer
         /// <summary>The title shown in the title bar and on the window tab. Defaults to the window class name split into words.</summary>
         protected virtual string WindowTitle => ObjectNames.NicifyVariableName(GetType().Name);
 
+        /// <summary>
+        /// Whether the window's tree is rebuilt (<see cref="CreateGUI"/> runs again) when a theme asset changes. True by default so every
+        /// studio window follows its system's theme; a window that edits themes itself returns false and listens to
+        /// <see cref="VeneerThemeRegistry.Changed"/> instead, so it keeps its selection and focus.
+        /// </summary>
+        protected virtual bool RebuildOnThemeChange => true;
+
         /// <summary>The root element of the window's tree (flex-grow 1, kit sheet applied); null before <c>CreateGUI</c>.</summary>
         protected VisualElement RootElement { get; private set; }
 
@@ -60,6 +67,34 @@ namespace Veneer
 
             BuildToolbar(Toolbar);
             BuildContent(Content);
+        }
+
+        /// <summary>
+        /// Rebuilds the tree of every open window that follows themes (see <see cref="RebuildOnThemeChange"/>). Called by the theme
+        /// registry when a theme changes. It walks the open windows instead of using <c>OnEnable</c>/<c>OnDisable</c> subscriptions,
+        /// because a derived window that declares its own <c>OnEnable</c> would silently replace the base one.
+        /// </summary>
+        internal static void RebuildOpenWindows()
+        {
+            VeneerWindow[] windows = Resources.FindObjectsOfTypeAll<VeneerWindow>();
+            for (int i = 0; i < windows.Length; i++)
+            {
+                VeneerWindow window = windows[i];
+                // A window that has no tree yet builds it itself when it opens.
+                if (window == null || window.RootElement == null || !window.RebuildOnThemeChange)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    window.CreateGUI();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
+            }
         }
 
         /// <summary>Adds the window's content to <paramref name="content"/>. Called every time the tree is built.</summary>

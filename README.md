@@ -1,7 +1,7 @@
 # Veneer
 
 The shared editor-UI kit of the studio's systems: one style sheet, one icon set, one set of controls and a small layout API, so every
-Inspector, settings page and tool window looks like part of the same product. Editor only (UI Toolkit, Unity 6000.3), no runtime code.
+Inspector, settings page and tool window looks like part of the same product. Editor only (UI Toolkit, Unity 6000.3), no runtime code. Since 1.1.0 it also lets anyone restyle the Inspector of their own scripts without code (see "Inspector layouts and the Designer").
 
 - Namespace `Veneer`, assembly `Veneer.Editor` (Editor platform, references nothing).
 - Systems never reference it from `Runtime/`. A system's **Editor** assembly references it and is gated by `HAS_VENEER`
@@ -18,6 +18,11 @@ Veneer/
     Controls/   VeneerControls.cs  VeneerBinding.cs  VeneerFieldInfo.cs
     Builder/    VeneerInspectorBuilder.cs  VeneerInspector.cs  VeneerAutoInspector.cs
     Pages/      VeneerSettingsPage.cs  VeneerWindow.cs
+    Brand/      logo.png (the Veneer icon: three stacked layers)   VeneerKitBrand.cs (the kit's own brand: used by its windows and settings page)
+    Layout/     VeneerLayout*.cs  VeneerScriptIcon.cs   (layout asset, registry, renderer, generic editors, theme)
+    Designer/   VeneerDesignerWindow*.cs  VeneerDesignerIcons.cs  Designer.uss
+    Theme/      VeneerTheme.cs  VeneerThemeRegistry.cs  VeneerThemeSheet.cs  VeneerThemeEffective.cs  VeneerThemePostprocessor.cs  VeneerBrandCatalog.cs
+    ThemeEditor/ VeneerThemeEditorWindow*.cs  VeneerThemeSample.cs  ThemeEditor.uss
     Graph/      VeneerGraph.cs  (VeneerSeries, VeneerPalette, VeneerGraph, VeneerSparkline, VeneerNumberText)
     Styles/     Veneer.uss
     Icons/      104 white 64x64 glyphs (lowercase-kebab names)
@@ -127,6 +132,76 @@ internal sealed class MyWindow : VeneerWindow
     protected override void BuildContent(VisualElement content) { /* KPI cards, VeneerGraph ... */ Every(250, Refresh); }
 }
 ```
+
+## Inspector layouts and the Designer (restyle any script without code)
+
+`Tools > Veneer > Inspector Designer` restyles the Inspector of **any MonoBehaviour or ScriptableObject** - yours, a package's - without touching
+its code. Drop a script on the window, add tabs and cards, drag the script's fields into them, then set an icon for the script, a banner image across
+the top (its height or width is yours; *Preserve aspect* keeps the picture's ratio like the Image component), an accent colour, and for every field a label,
+tooltip, unit, widget, read-only and a *show only when* rule. A live preview shows the real Inspector. The result is a `VeneerLayout` asset (default folder
+`Assets/Veneer Layouts/`, saved automatically); delete it and the default Inspector is back. The script and its variables are never changed.
+
+- **Nothing is lost.** Fields you do not place appear in an automatic *Other* card at the end (a field added to the script later shows up there by itself) unless you
+  hid them on purpose (the Hidden list).
+- **Types with their own editor are not overridden** (Unity picks the most specific editor, and the kit's two generic editors are the least specific). The window says
+  so with a hint. For those the look is set by the system's brand.
+- **Header and banner.** The header (icon, title, subtitle) can carry a picture. With a banner image and "Header text on banner" on (the default) the header becomes one box as tall as the banner: the picture is its background (Fit: Cover crops, Fit keeps the whole picture with its aspect ratio like the Image component's Preserve Aspect, Stretch fills), a flat dark layer of strength Dim keeps the text readable, and the header icon (Icon size pixels, an own picture or a kit icon), the title and the subtitle sit on it in white. With that option off, or the header hidden, the banner is a separate strip above the header (full width, or a fixed width with left/centre/right alignment). In the Designer the banner is a card of the Header row, next to Script icon.
+- **Notes and show-if.** Besides fields a card can hold **notes**: message boxes with free multi-line text (Info, Warning or Error), like the grey explanation under a field. A field or a note can carry a *Show only when* rule on another field: equals, does not equal, greater, less, is true, is false, is assigned, is not assigned, is empty, is not empty ("empty" tests an unassigned object, an empty text or a list with no elements). A note is moved, reordered and deleted like a field.
+- **Engine** (`Editor/Layout/`): `VeneerLayout` (the data model), `VeneerLayoutRegistry.Find(type)` (exact type, then base types), `VeneerLayoutRenderer.Build(builder, layout, serializedObject)`,
+  `VeneerLayoutTheme` (writes the companion `.uss` that carries a custom accent colour, since USS variables cannot be set from C#), `VeneerScriptIcon` (script icon through
+  `EditorGUIUtility.SetIconForObject`), and two generic editors, `[CustomEditor(typeof(MonoBehaviour), true)]` and the ScriptableObject twin, that draw a layout when the type has one
+  and Unity's plain default Inspector otherwise.
+- **Switch:** *Project Settings > Veneer > Veneer layouts* (default on) turns the generic editors into plain default Inspectors. Another asset that also registers an editor
+  for `MonoBehaviour` can fight with ours; turn the switch off then.
+- **Designer** (`Editor/Designer/`): fields pane (search, placed/hidden/unplaced marks, *Place all*), layout tree (tabs > cards > fields, drag and drop with the mouse, up/down buttons and
+  keyboard), properties pane, live preview, kit icon picker. Edits are undoable.
+
+## Themes (restyle a system's editors without code)
+
+`Tools > Veneer > Theme Editor` restyles the editors of one system, of all of them, or makes a reusable look of your own, without touching any code. The left list has three groups:
+**Global (all systems)**, **Systems** (every system the project defines, each with its own look already filled in) and **Themes** (looks you made). Pick an entry, tick **Override** on the settings you
+want to change (the controls show the look that is in use now, greyed, until you tick) and watch the live sample in the middle, which is built through the kit's real path, so it is exactly what
+the system's Inspectors, windows and settings pages will look like. Edits are undoable and saved automatically; the theme asset of a system is made silently at the first change.
+
+- **New theme** (the + button of the Themes group) adds a reusable named theme as a full snapshot of the selected look (colours, corners, spacing, tabs, logo, banner). Rename it in its pane; delete it
+  with *Delete theme* (scripts that used it fall back to the default look). Systems and Global have *Reset all* instead.
+- **Settings:** accent colour, card colour, card border, text and muted text colours, **corner radius** (a slider: 0 square, 1 the kit's look, up to 2), **density** (a slider: 0.6 tight, 1 the kit's
+  look, up to 1.5 airy), tab style (Underline / Pill / Boxed), and a logo and a banner picture that replace the brand's own. The same colours are used on both editor skins.
+- **Order:** a setting is taken from the system's theme if it overrides it, else from the global theme if it does, else from the system's own brand. With no theme anywhere the look is exactly the kit's own.
+- **Per script:** in the Inspector Designer the *Theme* card of the Header chooses the look a script's Inspector uses: the default, a system's look (including its logo and banner) or one of your themes; the
+  header icon and the banner picture can come from that look or be your own picture.
+- **Engine** (`Editor/Theme/`): `VeneerTheme` (asset; `BrandName` = `VeneerBrand.Name` for a system's theme, empty for the global one, `Custom` + `ThemeName` for a reusable theme), `VeneerThemeRegistry`
+  (`Find`, `Global`, `Custom`, `FindCustom`, `Effective`, `EffectiveFor`, `Changed`, `Invalidate`), `VeneerThemeSheet` (writes the companion `<theme>.uss` with only the overridden variables; every radius and
+  spacing value is the kit's number times the scale, rounded, with minimums), `VeneerBrandCatalog` (`All`, `Find`, `Refresh`). `VeneerStyle.Root` / `ApplyBrand` apply a system's theme automatically,
+  `VeneerStyle.ApplyTheme(root, theme)` applies a custom one, `VeneerBrand.Logo` / `Banner` return the theme's pictures, open Inspectors and `VeneerWindow`s rebuild when a theme changes (a window can opt out
+  by overriding `RebuildOnThemeChange`).
+- **Shape variables:** corner radii and spacing are USS variables on `.vn-root` (`--vn-radius-*`, `--vn-gap`, `--vn-pad-*`, `--vn-row-h`, `--vn-ctl-h*`, `--vn-tab-h`); the tab variants are
+  `vn-tabstyle--pill` and `vn-tabstyle--boxed`.
+
+## System editors drawn by layouts (customisable Inspectors)
+
+A system's Inspector can be built on the layout engine so that its design is visible and editable in the Inspector Designer, while its technical parts stay in the system's code. Unity allows one editor per type, so
+the system's editor itself derives from `VeneerLayoutDrivenInspector<T>`: it draws the project's own layout of the type if there is one (`VeneerLayoutRegistry.Find`), otherwise the **default layout** the system ships.
+
+- **Default layout in code.** A system adds a class implementing `IVeneerDefaultLayoutProvider` (`TargetType`, `CreateLayout()` written with the fluent `VeneerLayoutBuilder`: `Page`, `Card`, `Field`, `Slider`, `Enum`, `Note`, `Custom`, `ShowIf`, `ReadOnly`,
+  and `RegisterItems()`). `VeneerDefaultLayouts.TryGet(type, out layout)` finds it (providers are discovered with `TypeCache`). The default is an in-memory layout, never an asset.
+- **Customize / Reset.** The Designer opens the default read-only ("System design"); **Customize** makes the user's copy in `Assets/Veneer Layouts/` (`FromSystemDefault`), **Reset to system default** deletes it.
+- **System items** (`VeneerCustomItems.Register(type, new VeneerCustomItem { Id, Label, Icon, Description, Slot, Build })`) are the technical pieces that are not fields: a Compile button (`Slot = Footer`, drawn after the tabs), a state pill
+  (`HeaderBadge`, at the right of the header), a group of computed hints (`Item`, drawn where the user puts it). The user can move or hide them, never change their inside. `VeneerCustomItems.RegisterWidget(type, propertyPath, build)` replaces the
+  generic widget of one property (for example a custom list). The item context offers the `SerializedObject`, the `Targets`, the builder and `Poll(Action)` (the builder's 200 ms scheduler).
+- **Nested fields.** Layout entries may point at fields inside nested serializable structs (`generalSettings.radius`); the Designer's field list expands such structs, and the automatic *Other* card never loses a field.
+- **Show-if** works on nested paths, on layer masks and enums, and with *is empty / is not empty*; **Tag dropdown**, slider end texts and enum button icons are entry options.
+- A layout-driven editor implements `IVeneerLayoutDriven`, so the Designer does not warn that the type "has its own editor".
+
+## Motion (small animations, one switch)
+
+The kit moves a little, in a way that follows the theme (accent colour) and can be turned down or off:
+- **Buttons, icon buttons, chips and segmented buttons** highlight on hover and shrink slightly while pressed; they spring back on release or when the pointer leaves.
+- **Sliders:** a fill follows the value; the handle grows and takes the accent colour on hover and grows more, with a ring, while it is held.
+- **Tabs:** switching slides and fades the content: the open page fades out toward one side and the new page arrives from the other (left tab to right tab: out to the left, in from the right).
+- **Dropdowns:** `VeneerDropdown` (and `VeneerControls.EnumDropdown`, used for plain enum fields) opens downward with a springy, rubber-band stretch and a rotating chevron; keyboard and click-away close it. Unity's own popup menu cannot be animated, so the kit draws its own.
+- **Reveal and feedback:** a card or note that appears through a show-if rule fades in; a chip pops when turned on; a pill pulses when its text changes; text fields glow in the accent colour when focused.
+- **Setting:** *Motion* in the Theme Editor (per system or global): Off, Subtle, Normal, Lively. It is applied as a root class (`vn-motion--off|subtle|lively`); animations written in code use `VeneerMotionKit.Scale(element)` (0 = none) so one switch calms all of them.
 
 ## The rules (every restyled Inspector / window)
 

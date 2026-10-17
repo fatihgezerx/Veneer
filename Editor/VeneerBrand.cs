@@ -120,11 +120,20 @@ namespace Veneer
         /// <summary>The accent preset class added to every root of this brand (for example <c>vn-accent--orange</c>); null for the default cyan.</summary>
         public string AccentClass { get; }
 
-        /// <summary>The logo texture (loaded again from its path if Unity destroyed it); null when the brand has none.</summary>
+        /// <summary>
+        /// The logo texture: the one a theme sets for this brand (or the global theme), else the brand's own (loaded again from its path if
+        /// Unity destroyed it); null when there is none.
+        /// </summary>
         public Texture2D Logo
         {
             get
             {
+                Texture2D themed = VeneerThemeRegistry.Effective(this).Logo;
+                if (themed != null)
+                {
+                    return themed;
+                }
+
                 if (logo == null && !string.IsNullOrEmpty(logoPath))
                 {
                     logo = AssetDatabase.LoadAssetAtPath<Texture2D>(logoPath);
@@ -134,11 +143,20 @@ namespace Veneer
             }
         }
 
-        /// <summary>The banner texture (loaded again from its path if Unity destroyed it); null when the brand has none.</summary>
+        /// <summary>
+        /// The banner texture: the one a theme sets for this brand (or the global theme), else the brand's own (loaded again from its path
+        /// if Unity destroyed it); null when there is none.
+        /// </summary>
         public Texture2D Banner
         {
             get
             {
+                Texture2D themed = VeneerThemeRegistry.Effective(this).Banner;
+                if (themed != null)
+                {
+                    return themed;
+                }
+
                 if (banner == null && !string.IsNullOrEmpty(bannerPath))
                 {
                     banner = AssetDatabase.LoadAssetAtPath<Texture2D>(bannerPath);

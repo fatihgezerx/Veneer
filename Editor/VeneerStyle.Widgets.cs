@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -40,6 +42,28 @@ namespace Veneer
             {
                 element.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
             }
+        }
+
+        /// <summary>
+        /// Fades and slides an element in (opacity 0 to 1, 4 px down to its place, about 160 ms; durations and distances follow
+        /// <see cref="VeneerMotionKit.Scale"/>). Call it right after showing an element that was hidden; hiding stays instant. It does nothing
+        /// when the element is null or not attached to a panel, or when motion is off. A running reveal, pop or pulse of the same element is
+        /// finished first; the element always ends with its normal opacity and no transform.
+        /// </summary>
+        public static void Reveal(VisualElement element)
+        {
+            if (element == null || element.panel == null)
+            {
+                return;
+            }
+
+            float motion = VeneerMotionKit.Scale(element);
+            if (motion <= 0f)
+            {
+                return;
+            }
+
+            GetMotionState(element).StartReveal(motion);
         }
 
         /// <summary>A small icon element (<c>vn-icon</c>, 16 px, muted tint) showing the glyph <paramref name="icon"/>; it ignores the mouse.</summary>
@@ -195,12 +219,18 @@ namespace Veneer
             var pill = new Label(text);
             pill.AddToClassList("vn-pill");
             pill.AddToClassList(PillClasses[PillIndex(kind)]);
+            pill.RegisterCallback(PillAttachedCallback);
             return pill;
         }
 
-        /// <summary>Changes the kind and the text of a pill made by <see cref="Pill"/>; nothing is touched when it already shows them.</summary>
+        /// <summary>
+        /// Changes the kind and the text of a pill made by <see cref="Pill"/>; nothing is touched when it already shows them. When a pill that
+        /// is already on screen really changes, it gives a brief pulse (scale 1.1 and back, about 180 ms; not during its first 300 ms on a panel,
+        /// not more often than every 0.6 s, not when motion is off).
+        /// </summary>
         public static void SetPill(Label pill, string kind, string text)
         {
+            bool changed = false;
             int index = PillIndex(kind);
             if (!pill.ClassListContains(PillClasses[index]))
             {
@@ -208,11 +238,19 @@ namespace Veneer
                 {
                     pill.EnableInClassList(PillClasses[i], i == index);
                 }
+
+                changed = true;
             }
 
             if (!string.Equals(pill.text, text, StringComparison.Ordinal))
             {
                 pill.text = text;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                PulsePill(pill);
             }
         }
 
@@ -378,7 +416,10 @@ namespace Veneer
 
         /// <summary>
         /// A tab bar plus one page per tab in a single container. Only the selected page is shown (the others stay alive and keep their
-        /// bindings); the selected tab is remembered for the editor session under <paramref name="sessionKey"/>.
+        /// bindings); the selected tab is remembered for the editor session under <paramref name="sessionKey"/>. When the user clicks another
+        /// tab the open page fades out and slides away from the new tab, then the new page fades in and slides in from the side of the new tab
+        /// (about 110 ms out, 190 ms in; scaled by <see cref="VeneerMotionKit.Scale"/>, instant when motion is off). The first build and the
+        /// restored selection are never animated; a click during an animation retargets it, and the target page always ends fully visible.
         /// </summary>
         /// <param name="sessionKey">The <see cref="SessionState"/> key; use a unique one per Inspector or page.</param>
         /// <param name="labels">Text per tab.</param>
@@ -400,13 +441,11 @@ namespace Veneer
             int selected = count == 0 ? 0 : Mathf.Clamp(SessionState.GetInt(sessionKey, 0), 0, count - 1);
             var view = new VisualElement();
             var pageList = new VisualElement[count];
+            var switcher = new TabSwitcher(view, pageList);
             tabBar = Tabs(icons, labels, tooltips, selected, index =>
             {
                 SessionState.SetInt(sessionKey, index);
-                for (int i = 0; i < pageList.Length; i++)
-                {
-                    SetDisplay(pageList[i], i == index);
-                }
+                switcher.Switch(index);
             }, brand);
             view.Add(tabBar);
             for (int i = 0; i < count; i++)
@@ -417,6 +456,7 @@ namespace Veneer
                 view.Add(page);
             }
 
+            switcher.Initialize(tabBar, count == 0 ? -1 : selected);
             pages = pageList;
             return view;
         }
@@ -458,6 +498,8 @@ namespace Veneer
         /// <summary>
         /// A pill-shaped toggle button (<c>vn-chip</c>, <c>vn-chip--on</c> while on) with an optional icon and a text. Clicking flips it and
         /// calls <paramref name="changed"/> with the new value. Read and set it with <see cref="IsChipOn"/> and <see cref="SetChipOn"/>.
+        /// Turning it on by a click gives a quick pop (scale 1.08 and back with a springy return, about 220 ms, scaled by
+        /// <see cref="VeneerMotionKit.Scale"/>); turning it off, or setting it from code, does not.
         /// </summary>
         public static VisualElement Chip(string text, string icon, bool on, Action<bool> changed, VeneerBrand brand = null)
         {
@@ -477,6 +519,11 @@ namespace Veneer
             {
                 bool next = !chip.ClassListContains(ChipOnClass);
                 chip.EnableInClassList(ChipOnClass, next);
+                if (next)
+                {
+                    PopChip(chip);
+                }
+
                 if (changed != null)
                 {
                     changed(next);
@@ -736,6 +783,491 @@ namespace Veneer
             textLabel.AddToClassList("vn-empty__text");
             state.Add(textLabel);
             return state;
+        }
+
+        // ------------------------------------------------------------------ motion (code-driven animations)
+        // Everything here uses inline USS transitions plus one-shot timers (no per-frame work). Every animation multiplies its durations and
+        // distances by VeneerMotionKit.Scale, does nothing when that is 0, and removes all inline transition styles when it is done so the
+        // USS rules (hover, selected, ...) apply again. Unverified in a running editor: see the report of the author.
+
+        private const float TabLeaveMs = 110f;
+        private const float TabArriveMs = 190f;
+        private const float TabSlidePixels = 18f;
+        private const float RevealMs = 160f;
+        private const float RevealPixels = 4f;
+        private const float ChipPopPeak = 1.08f;
+        private const float ChipPopUpMs = 90f;
+        private const float ChipPopDownMs = 130f;
+        private const float PillPulsePeak = 1.1f;
+        private const float PillPulseUpMs = 70f;
+        private const float PillPulseDownMs = 110f;
+        private const float ChipColorMs = 100f; // the 0.1 s colour transition of a chip in Veneer.uss, kept while the pop overrides the list
+        private const double AttachGraceSeconds = 0.3;
+        private const double PulseGapSeconds = 0.6;
+        private const long FrameMs = 16;
+        private const long SafetyMs = 20;
+
+        // Shared, never modified after creation (the style system only reads them).
+        private static readonly List<StylePropertyName> OpacityTranslateProperties =
+            new List<StylePropertyName> { new StylePropertyName("opacity"), new StylePropertyName("translate") };
+
+        private static readonly List<StylePropertyName> ScaleProperties = new List<StylePropertyName> { new StylePropertyName("scale") };
+
+        private static readonly List<StylePropertyName> ChipProperties = new List<StylePropertyName>
+        {
+            new StylePropertyName("scale"), new StylePropertyName("background-color"), new StylePropertyName("border-color"),
+        };
+
+        private static readonly List<EasingFunction> EaseInList = new List<EasingFunction> { new EasingFunction(EasingMode.EaseIn) };
+        private static readonly List<EasingFunction> EaseOutList = new List<EasingFunction> { new EasingFunction(EasingMode.EaseOut) };
+
+        private static readonly List<EasingFunction> ChipUpEase = new List<EasingFunction>
+        {
+            new EasingFunction(EasingMode.EaseOut), new EasingFunction(EasingMode.Ease), new EasingFunction(EasingMode.Ease),
+        };
+
+        private static readonly List<EasingFunction> ChipDownEase = new List<EasingFunction>
+        {
+            new EasingFunction(EasingMode.EaseOutBack), new EasingFunction(EasingMode.Ease), new EasingFunction(EasingMode.Ease),
+        };
+
+        private static readonly StyleTranslate ZeroTranslate = new StyleTranslate(new Translate(0f, 0f));
+        private static readonly StyleScale IdentityScale = new StyleScale(new Scale(Vector2.one));
+        private static readonly EventCallback<AttachToPanelEvent> PillAttachedCallback = OnPillAttached;
+        private static readonly ConditionalWeakTable<VisualElement, MotionState> MotionStates = new ConditionalWeakTable<VisualElement, MotionState>();
+
+        private static readonly ConditionalWeakTable<VisualElement, MotionState>.CreateValueCallback CreateMotionState =
+            element => new MotionState(element);
+
+        private static MotionState GetMotionState(VisualElement element)
+        {
+            return MotionStates.GetValue(element, CreateMotionState);
+        }
+
+        private static void SetTransition(VisualElement element, List<StylePropertyName> properties, float milliseconds, List<EasingFunction> easing)
+        {
+            IStyle style = element.style;
+            style.transitionProperty = properties;
+            style.transitionDuration = new List<TimeValue>(1) { new TimeValue(milliseconds, TimeUnit.Millisecond) };
+            style.transitionTimingFunction = easing;
+        }
+
+        private static void ClearTransition(VisualElement element)
+        {
+            IStyle style = element.style;
+            style.transitionProperty = StyleKeyword.Null;
+            style.transitionDuration = StyleKeyword.Null;
+            style.transitionTimingFunction = StyleKeyword.Null;
+        }
+
+        private static void PopChip(VisualElement chip)
+        {
+            if (chip.panel == null)
+            {
+                return;
+            }
+
+            float motion = VeneerMotionKit.Scale(chip);
+            if (motion > 0f)
+            {
+                GetMotionState(chip).StartPulse(motion, ChipPopPeak, ChipPopUpMs, ChipPopDownMs, true);
+            }
+        }
+
+        private static void PulsePill(Label pill)
+        {
+            if (pill.panel == null)
+            {
+                return;
+            }
+
+            float motion = VeneerMotionKit.Scale(pill);
+            if (motion <= 0f)
+            {
+                return;
+            }
+
+            MotionState state = GetMotionState(pill);
+            double now = EditorApplication.timeSinceStartup;
+            if (now - state.AttachedAt < AttachGraceSeconds || now - state.LastPulseAt < PulseGapSeconds)
+            {
+                return;
+            }
+
+            state.LastPulseAt = now;
+            state.StartPulse(motion, PillPulsePeak, PillPulseUpMs, PillPulseDownMs, false);
+        }
+
+        private static void OnPillAttached(AttachToPanelEvent evt)
+        {
+            if (evt.target is VisualElement element)
+            {
+                GetMotionState(element).AttachedAt = EditorApplication.timeSinceStartup;
+            }
+        }
+
+        // The running animation of one element (reveal, chip pop or pill pulse); starting a new one first settles the old one.
+        private sealed class MotionState
+        {
+            private const int KindNone = 0;
+            private const int KindReveal = 1;
+            private const int KindPulse = 2;
+
+            private readonly VisualElement element;
+            private Action stepAction;
+            private IVisualElementScheduledItem pending;
+            private int kind;
+            private int step;
+            private float motion;
+            private bool chipColors;
+            private float downMs;
+            private StyleFloat savedOpacity;
+
+            /// <summary>When the element last attached to a panel (negative infinity when unknown).</summary>
+            public double AttachedAt = double.NegativeInfinity;
+
+            /// <summary>When the last pulse started (negative infinity when none).</summary>
+            public double LastPulseAt = double.NegativeInfinity;
+
+            public MotionState(VisualElement element)
+            {
+                this.element = element;
+            }
+
+            public void StartReveal(float motionScale)
+            {
+                Settle();
+                kind = KindReveal;
+                step = 0;
+                motion = motionScale;
+                savedOpacity = element.style.opacity;
+                element.style.opacity = 0f;
+                element.style.translate = new StyleTranslate(new Translate(0f, -RevealPixels * motionScale));
+                Schedule(FrameMs);
+            }
+
+            public void StartPulse(float motionScale, float peakScale, float upMs, float downMilliseconds, bool withChipColors)
+            {
+                Settle();
+                kind = KindPulse;
+                step = 0;
+                motion = motionScale;
+                chipColors = withChipColors;
+                downMs = downMilliseconds * motionScale;
+                float up = upMs * motionScale;
+                ApplyPulseTransition(up, withChipColors ? ChipUpEase : EaseOutList);
+                float amount = 1f + (peakScale - 1f) * motionScale;
+                element.style.scale = new StyleScale(new Scale(new Vector2(amount, amount)));
+                Schedule((long)up);
+            }
+
+            private void Schedule(long delayMs)
+            {
+                if (stepAction == null)
+                {
+                    stepAction = Step;
+                }
+
+                pending = element.schedule.Execute(stepAction).StartingIn(delayMs);
+            }
+
+            private void Step()
+            {
+                pending = null;
+                if (kind == KindReveal)
+                {
+                    if (step == 0)
+                    {
+                        step = 1;
+                        float ms = RevealMs * motion;
+                        SetTransition(element, OpacityTranslateProperties, ms, EaseOutList);
+                        element.style.opacity = savedOpacity.keyword == StyleKeyword.Undefined ? savedOpacity.value : 1f;
+                        element.style.translate = ZeroTranslate;
+                        Schedule((long)ms + SafetyMs);
+                    }
+                    else
+                    {
+                        Settle();
+                    }
+                }
+                else if (kind == KindPulse)
+                {
+                    if (step == 0)
+                    {
+                        step = 1;
+                        ApplyPulseTransition(downMs, chipColors ? ChipDownEase : EaseOutList);
+                        element.style.scale = IdentityScale;
+                        Schedule((long)downMs + SafetyMs);
+                    }
+                    else
+                    {
+                        Settle();
+                    }
+                }
+            }
+
+            private void ApplyPulseTransition(float milliseconds, List<EasingFunction> easing)
+            {
+                IStyle style = element.style;
+                if (chipColors)
+                {
+                    float colorMs = ChipColorMs * motion;
+                    style.transitionProperty = ChipProperties;
+                    style.transitionDuration = new List<TimeValue>(3)
+                    {
+                        new TimeValue(milliseconds, TimeUnit.Millisecond),
+                        new TimeValue(colorMs, TimeUnit.Millisecond),
+                        new TimeValue(colorMs, TimeUnit.Millisecond),
+                    };
+                }
+                else
+                {
+                    style.transitionProperty = ScaleProperties;
+                    style.transitionDuration = new List<TimeValue>(1) { new TimeValue(milliseconds, TimeUnit.Millisecond) };
+                }
+
+                style.transitionTimingFunction = easing;
+            }
+
+            // Stops the timer and puts every inline style this animation touched back, so USS rules apply again.
+            private void Settle()
+            {
+                if (pending != null)
+                {
+                    pending.Pause();
+                    pending = null;
+                }
+
+                if (kind == KindReveal)
+                {
+                    element.style.opacity = savedOpacity;
+                    element.style.translate = StyleKeyword.Null;
+                    ClearTransition(element);
+                }
+                else if (kind == KindPulse)
+                {
+                    element.style.scale = StyleKeyword.Null;
+                    ClearTransition(element);
+                }
+
+                kind = KindNone;
+            }
+        }
+
+        // Switches the pages of a TabView with a fade and a slide. States: idle, leaving (old page fading out), arriving (new page placed at
+        // its start pose, waiting one frame so the style system sees the start values) and settling (new page transitioning to rest).
+        // One timer at a time is kept in pending; every new switch or click cancels it, so no page is left half-faded.
+        private sealed class TabSwitcher
+        {
+            private const int Idle = 0;
+            private const int Leaving = 1;
+            private const int Arriving = 2;
+            private const int Settling = 3;
+
+            private readonly VisualElement view;
+            private readonly VisualElement[] pages;
+            private VisualElement bar;
+            private Action stepAction;
+            private IVisualElementScheduledItem pending;
+            private int phase;
+            private int current;
+            private int leaving;
+            private int target;
+            private float motion;
+
+            public TabSwitcher(VisualElement view, VisualElement[] pages)
+            {
+                this.view = view;
+                this.pages = pages;
+            }
+
+            public void Initialize(VisualElement tabBar, int selected)
+            {
+                bar = tabBar;
+                current = selected;
+                target = selected;
+                view.RegisterCallback<DetachFromPanelEvent>(OnDetached);
+            }
+
+            // Called after a user click already moved the tab bar's selection to index.
+            public void Switch(int index)
+            {
+                if (index < 0 || index >= pages.Length)
+                {
+                    return;
+                }
+
+                float scale = VeneerMotionKit.Scale(view);
+                if (scale <= 0f || view.panel == null)
+                {
+                    Snap(index);
+                    return;
+                }
+
+                if (phase == Idle)
+                {
+                    // Rules (show-if on tabs) can move the shown page without telling us, so look at what is really shown.
+                    current = FindShown();
+                }
+
+                if (current < 0 || current >= pages.Length || (current == index && phase != Leaving))
+                {
+                    Snap(index);
+                    return;
+                }
+
+                motion = scale;
+                target = index;
+                if (phase == Leaving)
+                {
+                    if (index == current)
+                    {
+                        // Back to the page that is still fading out: bring it back from where it is.
+                        CancelTimer();
+                        BeginArrive(current, false);
+                    }
+
+                    // Otherwise the running leave lands on the new target by itself.
+                    return;
+                }
+
+                CancelTimer();
+                BeginLeave(current, index);
+            }
+
+            private int FindShown()
+            {
+                for (int i = 0; i < pages.Length; i++)
+                {
+                    if (pages[i].style.display.value != DisplayStyle.None)
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+
+            private void BeginLeave(int from, int to)
+            {
+                phase = Leaving;
+                leaving = from;
+                float direction = to > from ? 1f : -1f;
+                float ms = TabLeaveMs * motion;
+                VisualElement page = pages[from];
+                SetTransition(page, OpacityTranslateProperties, ms, EaseInList);
+                page.style.opacity = 0f;
+                page.style.translate = new StyleTranslate(new Translate(-direction * TabSlidePixels * motion, 0f));
+                Schedule((long)ms + SafetyMs);
+            }
+
+            private void BeginArrive(int index, bool fresh)
+            {
+                current = index;
+                if (!fresh)
+                {
+                    StartArrival();
+                    return;
+                }
+
+                phase = Arriving;
+                float side = index >= leaving ? 1f : -1f;
+                VisualElement page = pages[index];
+                ClearTransition(page);
+                page.style.opacity = 0f;
+                page.style.translate = new StyleTranslate(new Translate(side * TabSlidePixels * motion, 0f));
+                SetDisplay(page, true);
+                Schedule(FrameMs);
+            }
+
+            private void StartArrival()
+            {
+                phase = Settling;
+                float ms = TabArriveMs * motion;
+                VisualElement page = pages[current];
+                SetTransition(page, OpacityTranslateProperties, ms, EaseOutList);
+                page.style.opacity = 1f;
+                page.style.translate = ZeroTranslate;
+                Schedule((long)ms + SafetyMs);
+            }
+
+            private void Schedule(long delayMs)
+            {
+                if (stepAction == null)
+                {
+                    stepAction = Step;
+                }
+
+                pending = view.schedule.Execute(stepAction).StartingIn(delayMs);
+            }
+
+            private void Step()
+            {
+                pending = null;
+                switch (phase)
+                {
+                    case Leaving:
+                        ResetPage(pages[leaving]);
+                        SetDisplay(pages[leaving], false);
+                        // The bar is the truth: a rule may have moved the selection while the old page was fading.
+                        int selected = GetSegmentedSelected(bar);
+                        if (selected < 0 || selected >= pages.Length)
+                        {
+                            Snap(selected);
+                            return;
+                        }
+
+                        target = selected;
+                        BeginArrive(selected, true);
+                        break;
+                    case Arriving:
+                        StartArrival();
+                        break;
+                    case Settling:
+                        ResetPage(pages[current]);
+                        phase = Idle;
+                        break;
+                }
+            }
+
+            // Ends any animation at once: the page at index is shown with no leftover style, every other page is hidden (-1 hides all).
+            private void Snap(int index)
+            {
+                CancelTimer();
+                for (int i = 0; i < pages.Length; i++)
+                {
+                    ResetPage(pages[i]);
+                    SetDisplay(pages[i], i == index);
+                }
+
+                current = index;
+                target = index;
+                phase = Idle;
+            }
+
+            private void CancelTimer()
+            {
+                if (pending != null)
+                {
+                    pending.Pause();
+                    pending = null;
+                }
+            }
+
+            private static void ResetPage(VisualElement page)
+            {
+                page.style.opacity = StyleKeyword.Null;
+                page.style.translate = StyleKeyword.Null;
+                ClearTransition(page);
+            }
+
+            private void OnDetached(DetachFromPanelEvent evt)
+            {
+                if (phase != Idle)
+                {
+                    Snap(GetSegmentedSelected(bar));
+                }
+            }
         }
 
         // ------------------------------------------------------------------ internals
