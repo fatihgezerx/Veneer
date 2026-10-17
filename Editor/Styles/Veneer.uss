@@ -1,0 +1,962 @@
+/*
+ * Veneer - shared editor style sheet.
+ *
+ * Added by VeneerStyle.Root() to every tree. Colours are USS variables declared on .vn-root (dark skin) and overridden on
+ * .vn-root.vn-root--light (light skin). The accent is --vn-accent (+ -soft and -line): a brand overrides the three through
+ * an accent preset class (.vn-accent--violet ...) or through its own style sheet (VeneerBrand.StyleSheetPath).
+ * Spacing uses margins only (USS in Unity 6000.3 has no gap property): blocks carry margin-bottom 6px; a .vn-row puts
+ * margin-right 6px on its children and cancels the last one with a negative margin on itself.
+ * Icons are white glyph PNGs tinted with -unity-background-image-tint-color.
+ */
+
+/* ------------------------------------------------------------------ root and palette */
+
+.vn-root {
+    --vn-accent: #3FB6FF;
+    --vn-accent-soft: rgba(63, 182, 255, 0.16);
+    --vn-accent-line: rgba(63, 182, 255, 0.55);
+
+    --vn-text: #D2D2D2;
+    --vn-text-muted: #9B9B9B;
+    --vn-card: rgba(255, 255, 255, 0.045);
+    --vn-card-border: rgba(255, 255, 255, 0.10);
+    --vn-hover: rgba(255, 255, 255, 0.09);
+    --vn-pressed: rgba(63, 182, 255, 0.24);
+    --vn-track: rgba(0, 0, 0, 0.28);
+    --vn-label-width: 132px;
+
+    --vn-ok: #4ADE80;
+    --vn-ok-bg: rgba(74, 222, 128, 0.16);
+    --vn-ok-line: rgba(74, 222, 128, 0.45);
+    --vn-idle: #7C93B8;
+    --vn-idle-bg: rgba(124, 147, 184, 0.18);
+    --vn-idle-line: rgba(124, 147, 184, 0.50);
+    --vn-warn: #F5B83D;
+    --vn-warn-bg: rgba(245, 184, 61, 0.15);
+    --vn-warn-line: rgba(245, 184, 61, 0.50);
+    --vn-error: #F26B6B;
+    --vn-error-bg: rgba(242, 107, 107, 0.15);
+    --vn-error-line: rgba(242, 107, 107, 0.50);
+    --vn-special: #B48CFF;
+    --vn-special-bg: rgba(180, 140, 255, 0.16);
+    --vn-special-line: rgba(180, 140, 255, 0.50);
+
+    flex-shrink: 0;
+    padding: 2px 0 0 0;
+}
+
+.vn-root.vn-root--light {
+    --vn-accent: #0B86D6;
+    --vn-accent-soft: rgba(11, 134, 214, 0.14);
+    --vn-accent-line: rgba(11, 134, 214, 0.60);
+
+    --vn-text: #1A1A1A;
+    --vn-text-muted: #555555;
+    --vn-card: rgba(255, 255, 255, 0.45);
+    --vn-card-border: rgba(0, 0, 0, 0.20);
+    --vn-hover: rgba(0, 0, 0, 0.08);
+    --vn-pressed: rgba(11, 134, 214, 0.22);
+    --vn-track: rgba(0, 0, 0, 0.13);
+
+    --vn-ok: #178A45;
+    --vn-ok-bg: rgba(23, 138, 69, 0.14);
+    --vn-ok-line: rgba(23, 138, 69, 0.50);
+    --vn-idle: #4C6591;
+    --vn-idle-bg: rgba(76, 101, 145, 0.14);
+    --vn-idle-line: rgba(76, 101, 145, 0.50);
+    --vn-warn: #9A5F00;
+    --vn-warn-bg: rgba(200, 130, 0, 0.16);
+    --vn-warn-line: rgba(154, 95, 0, 0.55);
+    --vn-error: #C23030;
+    --vn-error-bg: rgba(194, 48, 48, 0.13);
+    --vn-error-line: rgba(194, 48, 48, 0.50);
+    --vn-special: #7A4FD0;
+    --vn-special-bg: rgba(122, 79, 208, 0.13);
+    --vn-special-line: rgba(122, 79, 208, 0.50);
+}
+
+/* ------------------------------------------------------------------ accent presets (a brand picks one) */
+
+.vn-root.vn-accent--blue { --vn-accent: #5B8CFF; --vn-accent-soft: rgba(91, 140, 255, 0.16); --vn-accent-line: rgba(91, 140, 255, 0.55); --vn-pressed: rgba(91, 140, 255, 0.24); }
+.vn-root.vn-accent--violet { --vn-accent: #A78BFA; --vn-accent-soft: rgba(167, 139, 250, 0.16); --vn-accent-line: rgba(167, 139, 250, 0.55); --vn-pressed: rgba(167, 139, 250, 0.24); }
+.vn-root.vn-accent--magenta { --vn-accent: #F472B6; --vn-accent-soft: rgba(244, 114, 182, 0.16); --vn-accent-line: rgba(244, 114, 182, 0.55); --vn-pressed: rgba(244, 114, 182, 0.24); }
+.vn-root.vn-accent--red { --vn-accent: #F87171; --vn-accent-soft: rgba(248, 113, 113, 0.16); --vn-accent-line: rgba(248, 113, 113, 0.55); --vn-pressed: rgba(248, 113, 113, 0.24); }
+.vn-root.vn-accent--orange { --vn-accent: #FB923C; --vn-accent-soft: rgba(251, 146, 60, 0.16); --vn-accent-line: rgba(251, 146, 60, 0.55); --vn-pressed: rgba(251, 146, 60, 0.24); }
+.vn-root.vn-accent--amber { --vn-accent: #FBBF24; --vn-accent-soft: rgba(251, 191, 36, 0.16); --vn-accent-line: rgba(251, 191, 36, 0.55); --vn-pressed: rgba(251, 191, 36, 0.24); }
+.vn-root.vn-accent--green { --vn-accent: #4ADE80; --vn-accent-soft: rgba(74, 222, 128, 0.16); --vn-accent-line: rgba(74, 222, 128, 0.55); --vn-pressed: rgba(74, 222, 128, 0.24); }
+.vn-root.vn-accent--teal { --vn-accent: #2DD4BF; --vn-accent-soft: rgba(45, 212, 191, 0.16); --vn-accent-line: rgba(45, 212, 191, 0.55); --vn-pressed: rgba(45, 212, 191, 0.24); }
+.vn-root.vn-accent--slate { --vn-accent: #94A3B8; --vn-accent-soft: rgba(148, 163, 184, 0.16); --vn-accent-line: rgba(148, 163, 184, 0.55); --vn-pressed: rgba(148, 163, 184, 0.24); }
+
+.vn-root.vn-root--light.vn-accent--blue { --vn-accent: #2F5FD6; --vn-accent-soft: rgba(47, 95, 214, 0.14); --vn-accent-line: rgba(47, 95, 214, 0.60); --vn-pressed: rgba(47, 95, 214, 0.22); }
+.vn-root.vn-root--light.vn-accent--violet { --vn-accent: #6D44D6; --vn-accent-soft: rgba(109, 68, 214, 0.14); --vn-accent-line: rgba(109, 68, 214, 0.60); --vn-pressed: rgba(109, 68, 214, 0.22); }
+.vn-root.vn-root--light.vn-accent--magenta { --vn-accent: #C2338A; --vn-accent-soft: rgba(194, 51, 138, 0.14); --vn-accent-line: rgba(194, 51, 138, 0.60); --vn-pressed: rgba(194, 51, 138, 0.22); }
+.vn-root.vn-root--light.vn-accent--red { --vn-accent: #C23030; --vn-accent-soft: rgba(194, 48, 48, 0.14); --vn-accent-line: rgba(194, 48, 48, 0.60); --vn-pressed: rgba(194, 48, 48, 0.22); }
+.vn-root.vn-root--light.vn-accent--orange { --vn-accent: #C2530A; --vn-accent-soft: rgba(194, 83, 10, 0.14); --vn-accent-line: rgba(194, 83, 10, 0.60); --vn-pressed: rgba(194, 83, 10, 0.22); }
+.vn-root.vn-root--light.vn-accent--amber { --vn-accent: #A36A00; --vn-accent-soft: rgba(163, 106, 0, 0.14); --vn-accent-line: rgba(163, 106, 0, 0.60); --vn-pressed: rgba(163, 106, 0, 0.22); }
+.vn-root.vn-root--light.vn-accent--green { --vn-accent: #178A45; --vn-accent-soft: rgba(23, 138, 69, 0.14); --vn-accent-line: rgba(23, 138, 69, 0.60); --vn-pressed: rgba(23, 138, 69, 0.22); }
+.vn-root.vn-root--light.vn-accent--teal { --vn-accent: #0F8F7F; --vn-accent-soft: rgba(15, 143, 127, 0.14); --vn-accent-line: rgba(15, 143, 127, 0.60); --vn-pressed: rgba(15, 143, 127, 0.22); }
+.vn-root.vn-root--light.vn-accent--slate { --vn-accent: #475569; --vn-accent-soft: rgba(71, 85, 105, 0.14); --vn-accent-line: rgba(71, 85, 105, 0.60); --vn-pressed: rgba(71, 85, 105, 0.22); }
+
+/* ------------------------------------------------------------------ small utilities */
+
+.vn-grow {
+    flex-grow: 1;
+}
+
+.vn-spacer {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.vn-title {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: var(--vn-text);
+    margin: 0;
+    padding: 0;
+}
+
+.vn-subtitle {
+    font-size: 11px;
+    color: var(--vn-text-muted);
+    margin: 1px 0 0 0;
+    padding: 0;
+}
+
+.vn-label-muted {
+    color: var(--vn-text-muted);
+    font-size: 11px;
+    margin: 0;
+    padding: 0;
+}
+
+.vn-ellipsis {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vn-wrap {
+    white-space: normal;
+}
+
+.vn-unit {
+    width: 28px;
+    flex-shrink: 0;
+    margin: 0 0 0 4px;
+    padding: 0;
+    font-size: 11px;
+    color: var(--vn-text-muted);
+}
+
+.vn-section {
+    margin: 4px 0 6px 0;
+}
+
+.vn-section__label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    -unity-font-style: bold;
+    color: var(--vn-text-muted);
+    margin: 0;
+    padding: 0;
+}
+
+/* ------------------------------------------------------------------ icons */
+
+.vn-icon {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    flex-shrink: 0;
+    margin: 0;
+    -unity-background-scale-mode: scale-to-fit;
+    -unity-background-image-tint-color: var(--vn-text-muted);
+}
+
+.vn-icon--sm { width: 12px; height: 12px; min-width: 12px; }
+.vn-icon--lg { width: 24px; height: 24px; min-width: 24px; }
+.vn-icon--xl { width: 40px; height: 40px; min-width: 40px; }
+.vn-icon--text { -unity-background-image-tint-color: var(--vn-text); }
+.vn-icon--accent { -unity-background-image-tint-color: var(--vn-accent); }
+.vn-icon--ok { -unity-background-image-tint-color: var(--vn-ok); }
+.vn-icon--idle { -unity-background-image-tint-color: var(--vn-idle); }
+.vn-icon--warn { -unity-background-image-tint-color: var(--vn-warn); }
+.vn-icon--error { -unity-background-image-tint-color: var(--vn-error); }
+.vn-icon--special { -unity-background-image-tint-color: var(--vn-special); }
+
+/* ------------------------------------------------------------------ rows */
+
+.vn-row {
+    flex-direction: row;
+    align-items: center;
+    margin-right: -6px;
+}
+
+.vn-row > * {
+    margin-right: 6px;
+}
+
+.vn-row--wrap {
+    flex-wrap: wrap;
+    margin-bottom: -6px;
+}
+
+.vn-row--wrap > * {
+    margin-bottom: 6px;
+}
+
+.vn-row--between {
+    justify-content: space-between;
+}
+
+/* a label + control line with a fixed label column, so every field of a card lines up */
+.vn-field-row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 22px;
+    margin: 0 0 4px 0;
+}
+
+.vn-field-row__label {
+    width: var(--vn-label-width);
+    min-width: var(--vn-label-width);
+    flex-shrink: 0;
+    margin: 0 4px 0 0;
+    padding: 0 0 0 1px;
+    color: var(--vn-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+}
+
+.vn-field-row__control {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+}
+
+.vn-number {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 48px;
+    max-width: 160px;
+    margin: 0;
+}
+
+.vn-slider-row {
+    margin: 0 0 4px 0;
+}
+
+.vn-slider-row__top {
+    flex-direction: row;
+    align-items: center;
+    min-height: 22px;
+}
+
+.vn-slider-row__slider {
+    margin: 0 2px;
+}
+
+.vn-slider-row__ends {
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 0 2px;
+}
+
+/* ------------------------------------------------------------------ cards and headers */
+
+.vn-card {
+    padding: 8px 10px 4px 10px;
+    margin: 0 0 6px 0;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-card);
+}
+
+.vn-card > * {
+    margin-bottom: 6px;
+}
+
+.vn-card.vn-card--nested {
+    background-color: transparent;
+    padding: 6px 8px 2px 8px;
+    border-color: var(--vn-card-border);
+}
+
+.vn-card__title {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.vn-card__title > .vn-icon {
+    margin-right: 6px;
+}
+
+.vn-card__title-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    -unity-font-style: bold;
+    color: var(--vn-text-muted);
+    margin: 0;
+    padding: 0;
+}
+
+.vn-header__text {
+    flex-shrink: 1;
+    min-width: 0;
+    justify-content: center;
+}
+
+/* a card used as a button (preset cards) */
+.vn-preset {
+    flex-grow: 1;
+    flex-basis: 150px;
+    min-width: 140px;
+    margin: 0 6px 6px 0;
+    padding: 8px 10px;
+    align-items: stretch;
+    justify-content: flex-start;
+    -unity-text-align: upper-left;
+    white-space: normal;
+    border-width: 1px;
+    border-radius: 6px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-card);
+}
+
+.vn-preset:hover {
+    background-color: var(--vn-hover);
+}
+
+.vn-preset.vn-preset--on,
+.vn-preset.vn-preset--on:hover {
+    border-color: var(--vn-accent-line);
+    background-color: var(--vn-accent-soft);
+}
+
+.vn-preset__title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--vn-text);
+    margin: 0;
+    padding: 0;
+    white-space: normal;
+}
+
+.vn-preset__text {
+    font-size: 11px;
+    color: var(--vn-text-muted);
+    margin: 4px 0 0 0;
+    padding: 0;
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------ pills */
+
+.vn-pill {
+    height: 16px;
+    margin: 0;
+    padding: 0 8px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: var(--vn-accent-line);
+    background-color: var(--vn-accent-soft);
+    font-size: 10px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: var(--vn-accent);
+    flex-shrink: 0;
+    align-self: center;
+    white-space: nowrap;
+}
+
+.vn-pill.vn-pill--ok { color: var(--vn-ok); background-color: var(--vn-ok-bg); border-color: var(--vn-ok-line); }
+.vn-pill.vn-pill--idle { color: var(--vn-idle); background-color: var(--vn-idle-bg); border-color: var(--vn-idle-line); }
+.vn-pill.vn-pill--warn { color: var(--vn-warn); background-color: var(--vn-warn-bg); border-color: var(--vn-warn-line); }
+.vn-pill.vn-pill--error { color: var(--vn-error); background-color: var(--vn-error-bg); border-color: var(--vn-error-line); }
+.vn-pill.vn-pill--special { color: var(--vn-special); background-color: var(--vn-special-bg); border-color: var(--vn-special-line); }
+.vn-pill.vn-pill--info { color: var(--vn-accent); background-color: var(--vn-accent-soft); border-color: var(--vn-accent-line); }
+
+/* ------------------------------------------------------------------ buttons */
+
+.vn-icon-button {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    margin: 0;
+    padding: 0;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: transparent;
+    background-color: transparent;
+    transition-property: background-color, border-color;
+    transition-duration: 0.1s;
+}
+
+.vn-icon-button > .vn-icon {
+    -unity-background-image-tint-color: var(--vn-text-muted);
+    transition-property: -unity-background-image-tint-color;
+    transition-duration: 0.1s;
+}
+
+.vn-icon-button:hover { background-color: var(--vn-hover); border-color: var(--vn-card-border); }
+.vn-icon-button:hover > .vn-icon { -unity-background-image-tint-color: var(--vn-text); }
+.vn-icon-button:active { background-color: var(--vn-pressed); border-color: var(--vn-accent-line); }
+.vn-icon-button:active > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
+.vn-icon-button:focus { border-color: var(--vn-accent-line); }
+.vn-icon-button:disabled { opacity: 0.4; }
+
+.vn-icon-button.vn-icon-button--on { background-color: var(--vn-accent-soft); border-color: var(--vn-accent-line); }
+.vn-icon-button.vn-icon-button--on > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
+
+/* a text button with an optional icon */
+.vn-button {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 24px;
+    margin: 0;
+    padding: 0 10px;
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    color: var(--vn-text);
+    transition-property: background-color, border-color;
+    transition-duration: 0.1s;
+}
+
+.vn-button > .vn-icon { margin-right: 6px; }
+.vn-button:hover { background-color: var(--vn-hover); }
+.vn-button:active { background-color: var(--vn-pressed); border-color: var(--vn-accent-line); }
+.vn-button:focus { border-color: var(--vn-accent-line); }
+.vn-button:disabled { opacity: 0.4; }
+
+.vn-button__label {
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+    color: var(--vn-text);
+}
+
+.vn-button.vn-button--primary {
+    height: 30px;
+    border-width: 0;
+    border-radius: 6px;
+    background-color: var(--vn-accent);
+}
+
+.vn-button.vn-button--primary:hover { background-color: var(--vn-accent-line); }
+.vn-button.vn-button--primary > .vn-icon { -unity-background-image-tint-color: #0A0F18; }
+.vn-button.vn-button--primary > .vn-button__label { color: #0A0F18; -unity-font-style: bold; }
+
+/* ------------------------------------------------------------------ segmented icon buttons */
+
+.vn-segmented {
+    flex-direction: row;
+    align-self: flex-start;
+    flex-shrink: 0;
+    padding: 2px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+}
+
+.vn-segmented__button {
+    min-width: 34px;
+    height: 24px;
+    margin: 0;
+    padding: 0 8px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: transparent;
+    background-color: transparent;
+    transition-property: background-color, border-color;
+    transition-duration: 0.1s;
+}
+
+.vn-segmented__button > .vn-icon {
+    -unity-background-image-tint-color: var(--vn-text-muted);
+    transition-property: -unity-background-image-tint-color;
+    transition-duration: 0.1s;
+}
+
+.vn-segmented__label {
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+    color: var(--vn-text-muted);
+}
+
+.vn-segmented__button:hover { background-color: var(--vn-hover); border-color: transparent; }
+.vn-segmented__button:hover > .vn-icon { -unity-background-image-tint-color: var(--vn-text); }
+.vn-segmented__button:active { background-color: var(--vn-pressed); border-color: transparent; }
+.vn-segmented__button:focus { border-color: var(--vn-accent-line); }
+
+.vn-segmented__button.vn-segmented__button--selected,
+.vn-segmented__button.vn-segmented__button--selected:hover,
+.vn-segmented__button.vn-segmented__button--selected:active {
+    background-color: var(--vn-accent-soft);
+    border-color: var(--vn-accent-line);
+}
+
+.vn-segmented__button.vn-segmented__button--selected > .vn-icon,
+.vn-segmented__button.vn-segmented__button--selected:hover > .vn-icon {
+    -unity-background-image-tint-color: var(--vn-accent);
+}
+
+.vn-root .vn-segmented__button.vn-segmented__button--selected > Label { color: var(--vn-text); }
+
+/* ------------------------------------------------------------------ toggle chips */
+
+.vn-chip {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    height: 24px;
+    margin: 0;
+    padding: 0 10px 0 8px;
+    border-width: 1px;
+    border-radius: 12px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    transition-property: background-color, border-color;
+    transition-duration: 0.1s;
+}
+
+.vn-chip > .vn-icon {
+    margin-right: 5px;
+    -unity-background-image-tint-color: var(--vn-text-muted);
+}
+
+.vn-chip__label {
+    font-size: 11px;
+    margin: 0;
+    padding: 0;
+    color: var(--vn-text-muted);
+    -unity-text-align: middle-left;
+}
+
+.vn-chip:hover { background-color: var(--vn-hover); border-color: var(--vn-card-border); }
+.vn-chip:active { background-color: var(--vn-pressed); border-color: var(--vn-accent-line); }
+.vn-chip:focus { border-color: var(--vn-accent-line); }
+
+.vn-chip.vn-chip--on,
+.vn-chip.vn-chip--on:hover,
+.vn-chip.vn-chip--on:active {
+    background-color: var(--vn-accent-soft);
+    border-color: var(--vn-accent-line);
+}
+
+.vn-chip.vn-chip--on > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
+.vn-root .vn-chip.vn-chip--on > Label { color: var(--vn-text); }
+
+/* ------------------------------------------------------------------ tabs */
+
+.vn-tabs {
+    flex-direction: row;
+    margin: 0 0 8px 0;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--vn-card-border);
+}
+
+.vn-tab {
+    flex-direction: row;
+    flex-grow: 1;
+    flex-basis: 0;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    margin: 0;
+    padding: 0 10px;
+    border-width: 0;
+    border-bottom-width: 2px;
+    border-radius: 5px 5px 0 0;
+    border-color: transparent;
+    background-color: transparent;
+    transition-property: background-color, border-color;
+    transition-duration: 0.1s;
+}
+
+.vn-tab > .vn-icon {
+    margin-right: 6px;
+    -unity-background-image-tint-color: var(--vn-text-muted);
+}
+
+.vn-tab__label {
+    font-size: 11px;
+    margin: 0;
+    padding: 0;
+    color: var(--vn-text-muted);
+    -unity-text-align: middle-left;
+}
+
+.vn-tab:hover { background-color: var(--vn-hover); border-color: transparent; }
+.vn-tab:active { background-color: var(--vn-pressed); border-color: transparent; }
+.vn-tab:focus { border-color: transparent; }
+
+.vn-tab.vn-tab--selected,
+.vn-tab.vn-tab--selected:hover,
+.vn-tab.vn-tab--selected:active,
+.vn-tab.vn-tab--selected:focus {
+    background-color: var(--vn-accent-soft);
+    border-color: transparent;
+    border-bottom-color: var(--vn-accent);
+}
+
+.vn-tab.vn-tab--selected > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
+.vn-root .vn-tab.vn-tab--selected > Label { color: var(--vn-text); }
+
+/* ------------------------------------------------------------------ banner */
+
+/* The picture is assigned in code; the banner stays dark in both skins, so its text colours are fixed. */
+.vn-banner {
+    flex-direction: row;
+    align-items: center;
+    height: 84px;
+    margin: 0 0 8px 0;
+    padding: 0 16px;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #101826;
+    -unity-background-scale-mode: scale-and-crop;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+.vn-banner__logo {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    margin-right: 14px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.vn-banner__text {
+    flex-shrink: 1;
+    justify-content: center;
+}
+
+.vn-banner__title {
+    font-size: 20px;
+    -unity-font-style: bold;
+    margin: 0;
+    padding: 0;
+    color: #FFFFFF;
+}
+
+.vn-banner__subtitle {
+    font-size: 11px;
+    margin: 2px 0 0 0;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+/* ------------------------------------------------------------------ KPI cards */
+
+.vn-kpi {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 80px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-card);
+}
+
+.vn-kpi__header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.vn-kpi__header > .vn-icon { margin-right: 6px; }
+
+.vn-kpi__title {
+    font-size: 10px;
+    letter-spacing: 1px;
+    -unity-font-style: bold;
+    margin: 0;
+    padding: 0;
+    color: var(--vn-text-muted);
+}
+
+.vn-kpi__value {
+    font-size: 22px;
+    -unity-font-style: bold;
+    margin: 0;
+    padding: 0;
+    color: var(--vn-text);
+}
+
+/* ------------------------------------------------------------------ bar (horizontal fill) */
+
+.vn-bar {
+    flex-grow: 1;
+    flex-shrink: 1;
+    height: 6px;
+    min-width: 24px;
+    margin: 0;
+    border-radius: 3px;
+    overflow: hidden;
+    background-color: var(--vn-track);
+}
+
+.vn-bar__fill {
+    width: 0;
+    height: 100%;
+    border-radius: 3px;
+    background-color: var(--vn-accent);
+    transition-property: width;
+    transition-duration: 0.08s;
+}
+
+.vn-bar--ok > .vn-bar__fill { background-color: var(--vn-ok); }
+.vn-bar--warn > .vn-bar__fill { background-color: var(--vn-warn); }
+.vn-bar--error > .vn-bar__fill { background-color: var(--vn-error); }
+.vn-bar--special > .vn-bar__fill { background-color: var(--vn-special); }
+
+/* ------------------------------------------------------------------ hints */
+
+.vn-hint {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 8px;
+    margin: 0 0 6px 0;
+    border-radius: 5px;
+    border-left-width: 3px;
+    border-left-color: var(--vn-accent);
+    background-color: var(--vn-accent-soft);
+}
+
+.vn-hint > .vn-icon {
+    margin-right: 8px;
+    -unity-background-image-tint-color: var(--vn-accent);
+}
+
+.vn-hint__text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+    white-space: normal;
+    color: var(--vn-text);
+}
+
+.vn-hint > Button {
+    margin: 0 0 0 8px;
+    flex-shrink: 0;
+}
+
+.vn-hint.vn-hint--info { border-left-color: var(--vn-accent); background-color: var(--vn-accent-soft); }
+.vn-hint.vn-hint--warn { border-left-color: var(--vn-warn); background-color: var(--vn-warn-bg); }
+.vn-hint.vn-hint--warn > .vn-icon { -unity-background-image-tint-color: var(--vn-warn); }
+.vn-hint.vn-hint--error { border-left-color: var(--vn-error); background-color: var(--vn-error-bg); }
+.vn-hint.vn-hint--error > .vn-icon { -unity-background-image-tint-color: var(--vn-error); }
+
+/* ------------------------------------------------------------------ live strip (Play Mode readout) */
+
+.vn-live {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    min-height: 22px;
+    margin: 0 0 6px 0;
+    padding: 3px 8px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-accent-soft);
+}
+
+.vn-live > * { margin-right: 10px; }
+
+.vn-live__text {
+    font-size: 11px;
+    margin: 0;
+    padding: 0;
+    white-space: normal;
+    color: var(--vn-text);
+}
+
+/* ------------------------------------------------------------------ list rows and bound lists */
+
+.vn-list-row {
+    flex-direction: row;
+    align-items: center;
+    height: 26px;
+    margin: 0;
+    padding: 0 6px;
+    border-radius: 4px;
+    background-color: transparent;
+}
+
+.vn-list-row > * { margin-right: 8px; }
+.vn-list-row:hover { background-color: var(--vn-hover); }
+.vn-list-row.vn-list-row--alt { background-color: var(--vn-card); }
+.vn-list-row.vn-list-row--alt:hover { background-color: var(--vn-hover); }
+
+.vn-list {
+    margin: 0 0 6px 0;
+}
+
+.vn-list__header {
+    flex-direction: row;
+    align-items: center;
+    margin: 0 0 4px 0;
+}
+
+.vn-list__header > * { margin-right: 6px; }
+
+.vn-list__title {
+    margin: 0;
+    padding: 0;
+    color: var(--vn-text);
+    -unity-font-style: bold;
+}
+
+.vn-list__view {
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    min-height: 24px;
+}
+
+.vn-list__notice {
+    margin: 0 0 6px 0;
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------ toolbar, search, empty state, thumbnails, graph */
+
+.vn-toolbar {
+    flex-direction: row;
+    align-items: center;
+    min-height: 28px;
+    margin: 0 0 8px 0;
+}
+
+.vn-toolbar > * { margin-right: 4px; }
+
+.vn-search {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    height: 22px;
+    margin: 0;
+    padding: 0 4px 0 6px;
+    border-width: 1px;
+    border-radius: 11px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+}
+
+.vn-search:hover { border-color: var(--vn-accent-line); }
+
+.vn-search > TextField {
+    flex-grow: 1;
+    margin: 0 0 0 4px;
+}
+
+.vn-search > TextField > .unity-base-text-field__input {
+    border-width: 0;
+    background-color: transparent;
+    margin: 0;
+}
+
+.vn-empty {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 12px 30px 12px;
+}
+
+.vn-empty__title {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: var(--vn-text);
+    margin: 10px 0 6px 0;
+    -unity-text-align: middle-center;
+}
+
+.vn-empty__text {
+    font-size: 12px;
+    color: var(--vn-text-muted);
+    max-width: 320px;
+    white-space: normal;
+    margin: 0 0 14px 0;
+    -unity-text-align: middle-center;
+}
+
+.vn-thumb {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    margin: 0;
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.vn-graph {
+    height: 120px;
+    margin: 0;
+    border-radius: 5px;
+    background-color: var(--vn-track);
+}
+
+.vn-window {
+    flex-grow: 1;
+    flex-shrink: 1;
+    padding: 10px;
+}
+
+.vn-titlebar {
+    flex-direction: row;
+    align-items: center;
+    min-height: 28px;
+    margin: 0 0 8px 0;
+}
+
+.vn-titlebar > * { margin-right: 6px; }
+
+.vn-titlebar__logo {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    margin-right: 8px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* ------------------------------------------------------------------ bound fields inside the kit */
+
+/* align the label column of stock fields with .vn-field-row */
+.vn-root .vn-card .unity-base-field > .unity-base-field__label {
+    min-width: var(--vn-label-width);
+}
+
+/* [Header] / [Space] decorators would repeat what the cards already say */
+.vn-field--no-decorators > .unity-decorator-drawers-container {
+    display: none;
+}
