@@ -17,7 +17,7 @@ namespace Veneer
         private const float MixedOpacity = 0.55f;
 
         // Pill kinds in the order of the class list below; an unknown kind falls back to the first one (info).
-        // Legacy names (awake, asleep, kinematic) are accepted so code written for the first Optimized Rigidbody sheet migrates unchanged.
+        // Legacy names (awake, asleep, kinematic) are accepted so code written for the first editor sheet migrates unchanged.
         private static readonly string[] PillKinds = { "info", "ok", "idle", "warn", "error", "special", "awake", "asleep", "kinematic" };
         private static readonly int[] PillKindToClass = { 0, 1, 2, 3, 4, 5, 1, 2, 5 };
 

@@ -74,14 +74,14 @@ internal static class CombatBrand
 3. **Write the editor.**
 
 ```csharp
-[CustomEditor(typeof(OptimizedRigidbody))]
-internal sealed class OptimizedRigidbodyEditor : VeneerInspector<OptimizedRigidbody>
+[CustomEditor(typeof(PhysicsBody))]
+internal sealed class PhysicsBodyEditor : VeneerInspector<PhysicsBody>
 {
     protected override VeneerBrand Brand => PhysicsBrand.Value;
 
     protected override void Build(VeneerInspectorBuilder b)
     {
-        b.Header("Optimized Rigidbody", null, "sphere", out Label _);
+        b.Header("Physics Body", null, "sphere", out Label _);
         b.StatePill(() => Application.isPlaying ? ("Awake", "ok") : ("Dynamic", "info"));
         b.Live(() => "speed " + Target.LinearVelocity.magnitude.ToString("0.0") + " m/s");
 
@@ -91,7 +91,7 @@ internal sealed class OptimizedRigidbodyEditor : VeneerInspector<OptimizedRigidb
             b.Card("Shape", "cube", () =>
             {
                 b.Enum("shape", new[] { "sphere", "cube", "target" });
-                b.VisibleWhen(b.Number("radius", "Radius", "m"), "shape", (int)OptimizedShape.Box, invert: true);
+                b.VisibleWhen(b.Number("radius", "Radius", "m"), "shape", (int)BodyShape.Box, invert: true);
                 b.ConditionalHint(() => Target.Mass <= 0f ? "Mass must be above 0." : null, "error");
             });
             b.Card("Physics", "bolt", () =>
