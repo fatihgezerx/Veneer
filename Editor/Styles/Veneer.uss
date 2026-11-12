@@ -64,6 +64,9 @@
     --vn-error: #F26B6B;
     --vn-error-bg: rgba(242, 107, 107, 0.15);
     --vn-error-line: rgba(242, 107, 107, 0.50);
+    /* The information hint: a calm neutral grey that is the same in every system and theme (like the warning's yellow and the error's red). */
+    --vn-info: #AEB6BF;
+    --vn-info-bg: rgba(174, 182, 191, 0.12);
     --vn-special: #B48CFF;
     --vn-special-bg: rgba(180, 140, 255, 0.16);
     --vn-special-line: rgba(180, 140, 255, 0.50);
@@ -97,6 +100,8 @@
     --vn-error: #C23030;
     --vn-error-bg: rgba(194, 48, 48, 0.13);
     --vn-error-line: rgba(194, 48, 48, 0.50);
+    --vn-info: #5B6470;
+    --vn-info-bg: rgba(91, 100, 112, 0.10);
     --vn-special: #7A4FD0;
     --vn-special-bg: rgba(122, 79, 208, 0.13);
     --vn-special-line: rgba(122, 79, 208, 0.50);
@@ -269,6 +274,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     -unity-text-align: middle-left;
+}
+
+/* the label of a number row can be dragged sideways to change the number */
+.vn-scrub {
+    cursor: slide-arrow;
 }
 
 .vn-field-row__control {
@@ -516,7 +526,10 @@
 .vn-segmented {
     flex-direction: row;
     align-self: flex-start;
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     padding: 2px;
     border-radius: var(--vn-radius-seg);
     border-width: 1px;
@@ -526,6 +539,8 @@
 
 .vn-segmented__button {
     min-width: 34px;
+    flex-shrink: 1;
+    overflow: hidden;
     height: var(--vn-ctl-h);
     margin: 0;
     padding: 0 8px;
@@ -547,6 +562,11 @@
     padding: 0;
     font-size: 11px;
     color: var(--vn-text-muted);
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Toggle-like controls (segmented buttons, chips) light their border with the accent on hover but keep the neutral fill, so a hovered
@@ -616,10 +636,203 @@
 .vn-chip.vn-chip--on > .vn-icon { -unity-background-image-tint-color: var(--vn-accent); }
 .vn-root .vn-chip.vn-chip--on > Label { color: var(--vn-text); }
 
+/* ------------------------------------------------------------------ switch (a sliding on/off), checkbox (box with a tick), radio list */
+
+.vn-switch {
+    flex-direction: row;
+    align-items: center;
+    align-self: flex-start;
+    flex-shrink: 0;
+    height: var(--vn-ctl-h);
+    margin: 0;
+    padding: 0;
+}
+
+.vn-switch__track {
+    width: 36px;
+    height: 18px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    transition-property: background-color, border-color;
+    transition-duration: 0.18s;
+    transition-timing-function: ease-out;
+}
+
+.vn-switch__knob {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 6px;
+    background-color: var(--vn-text-muted);
+    translate: 0 0;
+    transition-property: translate, background-color, scale;
+    transition-duration: 0.22s, 0.18s, 0.12s;
+    transition-timing-function: ease-out-back, ease-out, ease-out;
+}
+
+.vn-switch:hover > .vn-switch__track { border-color: var(--vn-accent-line); background-color: var(--vn-hover); }
+.vn-switch:focus > .vn-switch__track { border-color: var(--vn-accent-line); }
+.vn-switch:active > .vn-switch__track > .vn-switch__knob { scale: 1.15 0.9; }
+
+.vn-switch.vn-switch--on > .vn-switch__track {
+    background-color: var(--vn-accent);
+    border-color: var(--vn-accent);
+}
+
+.vn-switch.vn-switch--on > .vn-switch__track > .vn-switch__knob {
+    translate: 18px 0;
+    background-color: #0A0F18;
+}
+
+.vn-switch.vn-switch--mixed > .vn-switch__track { background-color: var(--vn-accent-soft); border-color: var(--vn-accent-line); }
+.vn-switch.vn-switch--mixed > .vn-switch__track > .vn-switch__knob { translate: 9px 0; opacity: 0.6; }
+
+.vn-check {
+    flex-direction: row;
+    align-items: center;
+    align-self: flex-start;
+    flex-shrink: 0;
+    height: var(--vn-ctl-h);
+    margin: 0;
+    padding: 0;
+}
+
+.vn-check__box {
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--vn-radius-sm);
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    transition-property: background-color, border-color;
+    transition-duration: 0.14s;
+    transition-timing-function: ease-out;
+}
+
+.vn-check__box > .vn-check__mark {
+    width: 12px;
+    height: 12px;
+    scale: 0 0;
+    -unity-background-image-tint-color: var(--vn-accent);
+    transition-property: scale;
+    transition-duration: 0.22s;
+    transition-timing-function: ease-out-back;
+}
+
+.vn-check__box > .vn-check__dash {
+    position: absolute;
+    width: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background-color: var(--vn-accent);
+    display: none;
+}
+
+.vn-check:hover > .vn-check__box { border-color: var(--vn-accent-line); background-color: var(--vn-hover); }
+.vn-check:focus > .vn-check__box { border-color: var(--vn-accent-line); }
+.vn-check:active > .vn-check__box { background-color: var(--vn-pressed); }
+
+.vn-check.vn-check--on > .vn-check__box {
+    background-color: var(--vn-accent-soft);
+    border-color: var(--vn-accent-line);
+}
+
+.vn-check.vn-check--on > .vn-check__box > .vn-check__mark { scale: 1 1; }
+.vn-check.vn-check--mixed > .vn-check__box { border-color: var(--vn-accent-line); }
+.vn-check.vn-check--mixed > .vn-check__box > .vn-check__dash { display: flex; }
+
+.vn-radio {
+    flex-direction: column;
+    align-self: stretch;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding: 2px;
+    border-radius: var(--vn-radius-seg);
+    border-width: 1px;
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+}
+
+.vn-radio__item {
+    flex-direction: row;
+    align-items: center;
+    height: var(--vn-ctl-h);
+    margin: 0;
+    padding: 0 8px;
+    border-radius: var(--vn-radius-md);
+    border-width: 1px;
+    border-color: transparent;
+    background-color: transparent;
+    transition-property: background-color, border-color;
+    transition-duration: 0.12s;
+    transition-timing-function: ease-out;
+}
+
+.vn-radio__dot {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: var(--vn-text-muted);
+    background-color: transparent;
+    transition-property: border-color;
+    transition-duration: 0.12s;
+}
+
+.vn-radio__fill {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: var(--vn-accent);
+    scale: 0 0;
+    transition-property: scale;
+    transition-duration: 0.22s;
+    transition-timing-function: ease-out-back;
+}
+
+.vn-radio__icon { flex-shrink: 0; margin-right: 6px; -unity-background-image-tint-color: var(--vn-text-muted); }
+
+.vn-radio__label {
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+    color: var(--vn-text-muted);
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition-property: color;
+    transition-duration: 0.12s;
+}
+
+.vn-radio__item:hover { background-color: var(--vn-hover); border-color: var(--vn-accent-line); }
+.vn-radio__item:hover > .vn-radio__label { color: var(--vn-text); }
+.vn-radio__item:focus { border-color: var(--vn-accent-line); }
+.vn-radio__item:active { background-color: var(--vn-pressed); }
+
+.vn-radio__item.vn-radio__item--selected { background-color: var(--vn-accent-soft); border-color: var(--vn-accent-line); }
+.vn-radio__item.vn-radio__item--selected > .vn-radio__dot { border-color: var(--vn-accent); }
+.vn-radio__item.vn-radio__item--selected > .vn-radio__dot > .vn-radio__fill { scale: 1 1; }
+.vn-radio__item.vn-radio__item--selected > .vn-radio__icon { -unity-background-image-tint-color: var(--vn-accent); }
+.vn-root .vn-radio__item.vn-radio__item--selected > .vn-radio__label { color: var(--vn-text); }
+
 /* ------------------------------------------------------------------ tabs */
 
 .vn-tabs {
     flex-direction: row;
+    overflow: hidden;
     margin: 0 0 8px 0;
     border-bottom-width: 1px;
     border-bottom-color: var(--vn-card-border);
@@ -628,7 +841,10 @@
 .vn-tab {
     flex-direction: row;
     flex-grow: 1;
+    flex-shrink: 1;
     flex-basis: 0;
+    min-width: 28px;
+    overflow: hidden;
     align-items: center;
     justify-content: center;
     height: var(--vn-tab-h);
@@ -648,6 +864,7 @@
 }
 
 .vn-tab > .vn-icon {
+    flex-shrink: 0;
     margin-right: 6px;
     -unity-background-image-tint-color: var(--vn-text-muted);
 }
@@ -658,7 +875,18 @@
     padding: 0;
     color: var(--vn-text-muted);
     -unity-text-align: middle-left;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
+
+/* Set by VeneerStyle.Tabs when the bar is too narrow for text: the tabs that have an icon show only the icon (a tab without an icon
+   keeps its text and its ellipsis). */
+.vn-tab.vn-tab--compact { padding-left: 4px; padding-right: 4px; }
+.vn-tab.vn-tab--compact > .vn-tab__label { display: none; }
+.vn-tab.vn-tab--compact > .vn-icon { margin-right: 0; }
 
 /* A tab does not scale (it sits flush in its bar): hover fades in a faint accent underline and a brighter label, a press tints it. */
 .vn-tab:hover { background-color: var(--vn-hover); border-color: transparent; border-bottom-color: var(--vn-accent-line); }
@@ -870,13 +1098,13 @@
     margin-left: 0;
     border-radius: var(--vn-radius-md);
     border-left-width: 3px;
-    border-left-color: var(--vn-accent);
-    background-color: var(--vn-accent-soft);
+    border-left-color: var(--vn-info);
+    background-color: var(--vn-info-bg);
 }
 
 .vn-hint > .vn-icon {
     margin-right: 8px;
-    -unity-background-image-tint-color: var(--vn-accent);
+    -unity-background-image-tint-color: var(--vn-info);
 }
 
 .vn-hint__text {
@@ -894,7 +1122,8 @@
     flex-shrink: 0;
 }
 
-.vn-hint.vn-hint--info { border-left-color: var(--vn-accent); background-color: var(--vn-accent-soft); }
+.vn-hint.vn-hint--info { border-left-color: var(--vn-info); background-color: var(--vn-info-bg); }
+.vn-hint.vn-hint--info > .vn-icon { -unity-background-image-tint-color: var(--vn-info); }
 .vn-hint.vn-hint--warn { border-left-color: var(--vn-warn); background-color: var(--vn-warn-bg); }
 .vn-hint.vn-hint--warn > .vn-icon { -unity-background-image-tint-color: var(--vn-warn); }
 .vn-hint.vn-hint--error { border-left-color: var(--vn-error); background-color: var(--vn-error-bg); }
@@ -1121,8 +1350,8 @@
  * slider handle: the stock slider positions it with an inline translate, and a transition would make the handle lag the pointer.
  *
  *                  press scale (normal / subtle / lively)    fade     spring on release
- *   button         0.96 / 0.98 / 0.92                         0.12 s   ease-out-back (lively: ease-out-elastic)
- *   chip, segment  0.95 / 0.98 / 0.92
+ *   button         0.96 / 0.98 / 0.92                         0.12 s   ease-out-back
+ *   chip, segment  0.95 / 0.98 / 0.92   (the pop when a chip turns on is 1.04 with a plain ease-out back, no bounce)
  *   icon button    0.92 / 0.96 / 0.88
  *   slider handle  hover 1.18 / 1.10 / 1.25, held 1.32 / 1.18 / 1.45
  */
@@ -1153,6 +1382,22 @@
 /* The chip keeps its original 0.1 s colour fade (the chip pop written in code uses the same value). */
 .vn-chip { transition-duration: 0.1s, 0.1s, 0.24s; }
 .vn-chip:active { transition-duration: 0.1s, 0.1s, 0.08s; }
+
+/* The switch knob, the tick and the radio dot follow the motion setting: off = instant, subtle = shorter and no overshoot, lively = springier. */
+.vn-motion--off .vn-switch__knob,
+.vn-motion--off .vn-switch__track,
+.vn-motion--off .vn-check__box,
+.vn-motion--off .vn-check__box > .vn-check__mark,
+.vn-motion--off .vn-radio__item,
+.vn-motion--off .vn-radio__fill { transition-duration: 0s; }
+
+.vn-motion--subtle .vn-switch__knob { transition-duration: 0.14s, 0.12s, 0.08s; transition-timing-function: ease-out, ease-out, ease-out; }
+.vn-motion--subtle .vn-check__box > .vn-check__mark { transition-duration: 0.12s; transition-timing-function: ease-out; }
+.vn-motion--subtle .vn-radio__fill { transition-duration: 0.12s; transition-timing-function: ease-out; }
+
+.vn-motion--lively .vn-switch__knob { transition-duration: 0.32s, 0.18s, 0.12s; }
+.vn-motion--lively .vn-check__box > .vn-check__mark { transition-duration: 0.34s; }
+.vn-motion--lively .vn-radio__fill { transition-duration: 0.34s; }
 
 .vn-tab {
     transition-property: background-color, border-color;
@@ -1289,14 +1534,14 @@
     scale: 1.18 1.18;
 }
 
-/* ---- lively: longer fades, bigger scales, elastic return */
+/* ---- lively: longer fades, bigger scales, a longer spring back */
 
 .vn-root.vn-motion--lively .vn-button,
 .vn-root.vn-motion--lively .vn-icon-button,
 .vn-root.vn-motion--lively .vn-chip,
 .vn-root.vn-motion--lively .vn-segmented__button {
     transition-duration: 0.2s, 0.2s, 0.45s;
-    transition-timing-function: ease-out, ease-out, ease-out-elastic;
+    transition-timing-function: ease-out, ease-out, ease-out-back;
 }
 
 .vn-root.vn-motion--lively .vn-button:active,
@@ -1329,7 +1574,7 @@
 .vn-root.vn-motion--lively .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger,
 .vn-root.vn-motion--lively .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger-border {
     transition-duration: 0.45s, 0.2s, 0.2s;
-    transition-timing-function: ease-out-elastic, ease-out, ease-out;
+    transition-timing-function: ease-out-back, ease-out, ease-out;
 }
 
 .vn-root.vn-motion--lively .vn-slider.vn-slider-row__slider.unity-base-slider .unity-base-slider__drag-container .unity-base-slider__dragger:hover {

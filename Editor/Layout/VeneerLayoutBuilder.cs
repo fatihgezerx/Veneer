@@ -24,6 +24,7 @@ namespace Veneer
         private VeneerLayoutPage page;
         private VeneerLayoutBlock block;
         private VeneerLayoutEntry last;
+        private VeneerItemLayout lastItem;
 
         /// <summary>Starts a layout for <paramref name="targetType"/>.</summary>
         /// <param name="targetType">The edited type (<see cref="VeneerLayout.TypeName"/> is set from it).</param>
@@ -223,6 +224,107 @@ namespace Veneer
             return this;
         }
 
+        /// <summary>
+        /// Starts the item design of the list at <paramref name="listPath"/> (indices removed: <c>groups</c>, <c>groups.entries</c>); the following
+        /// <see cref="Item"/> calls add its fields. The list is drawn by <see cref="VeneerItemList"/> wherever it is placed. A second call for the
+        /// same path replaces the first.
+        /// </summary>
+        /// <param name="listPath">The list's property path without array indices.</param>
+        /// <param name="look">A card per element or one flat row per element.</param>
+        /// <param name="titlePath">Relative path of the text field edited in a card's head; null shows "Item n".</param>
+        /// <param name="addLabel">Text of the Add button; null uses "Add".</param>
+        /// <param name="emptyText">Text shown while the list is empty; null uses "No items yet.".</param>
+        public VeneerLayoutBuilder ItemList(
+            string listPath, VeneerItemLook look = VeneerItemLook.Card, string titlePath = null, string addLabel = null, string emptyText = null)
+        {
+            if (string.IsNullOrEmpty(listPath))
+            {
+                throw new ArgumentException("An item list needs a list path.", nameof(listPath));
+            }
+
+            string normalized = VeneerItemPaths.Normalize(listPath);
+            layout.FindItem(normalized, out int existing);
+            if (existing >= 0)
+            {
+                layout.Items.RemoveAt(existing);
+            }
+
+            lastItem = new VeneerItemLayout
+            {
+                ListPath = normalized,
+                Look = look,
+                TitlePath = titlePath,
+                AddLabel = addLabel,
+                EmptyText = emptyText,
+            };
+            layout.Items.Add(lastItem);
+            last = null;
+            return this;
+        }
+
+        /// <summary>Chooses which parts of the elements of the current <see cref="ItemList"/> are drawn: the drag handle, the remove button, the fold arrow and the count pill.</summary>
+        public VeneerLayoutBuilder ItemParts(bool handle = true, bool remove = true, bool fold = true, bool count = true)
+        {
+            VeneerItemLayout item = RequireItem(nameof(ItemParts));
+            item.ShowHandle = handle;
+            item.ShowRemove = remove;
+            item.ShowFold = fold;
+            item.ShowCount = count;
+            return this;
+        }
+
+        /// <summary>Draws the current <see cref="ItemList"/> without its header line: the Add button sits under the elements.</summary>
+        public VeneerLayoutBuilder ItemAddAtEnd(bool addAtEnd = true)
+        {
+            RequireItem(nameof(ItemAddAtEnd)).AddAtEnd = addAtEnd;
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a field to the elements of the current <see cref="ItemList"/>. <paramref name="relativePath"/> is relative to the element
+        /// (<c>prefab</c>, <c>entries</c>). The modifiers <see cref="Range"/>, <see cref="SameRow"/>, <see cref="Icon"/>, <see cref="ShowIf"/>
+        /// (a path relative to the element), <see cref="ReadOnly"/>, <see cref="Size"/>, <see cref="PictureSize"/> and <see cref="HideLabel"/> apply to it.
+        /// </summary>
+        public VeneerLayoutBuilder Item(
+            string relativePath, string label = null, string tooltip = null, string unit = null, VeneerWidget widget = VeneerWidget.Auto)
+        {
+            if (string.IsNullOrEmpty(relativePath))
+            {
+                throw new ArgumentException("An item field needs a relative property path.", nameof(relativePath));
+            }
+
+            VeneerItemLayout item = RequireItem(nameof(Item));
+            var entry = new VeneerLayoutEntry { Path = relativePath, Label = label, Tooltip = tooltip, Unit = unit, Widget = widget };
+            item.Entries.Add(entry);
+            last = entry;
+            return this;
+        }
+
+        /// <summary>Sets the width and height in pixels of the last added field or item field (0 keeps the automatic size).</summary>
+        public VeneerLayoutBuilder Size(float width, float height = 0f)
+        {
+            VeneerLayoutEntry entry = RequireLast(nameof(Size));
+            entry.Width = width;
+            entry.Height = height;
+            return this;
+        }
+
+        /// <summary>Sets the size in pixels of the small picture of the last added object field (0 keeps the default).</summary>
+        public VeneerLayoutBuilder PictureSize(float width, float height)
+        {
+            VeneerLayoutEntry entry = RequireLast(nameof(PictureSize));
+            entry.PictureWidth = width;
+            entry.PictureHeight = height;
+            return this;
+        }
+
+        /// <summary>Hides the label column of the last added field (useful when several item fields share one line).</summary>
+        public VeneerLayoutBuilder HideLabel()
+        {
+            RequireLast(nameof(HideLabel)).HideLabel = true;
+            return this;
+        }
+
         /// <summary>Returns the finished layout (an in-memory object that is never saved). The builder should not be used afterwards.</summary>
         public VeneerLayout Build()
         {
@@ -251,6 +353,16 @@ namespace Veneer
                 page = new VeneerLayoutPage { Title = DefaultPageTitle };
                 layout.Pages.Add(page);
             }
+        }
+
+        private VeneerItemLayout RequireItem(string method)
+        {
+            if (lastItem == null)
+            {
+                throw new InvalidOperationException(method + "() needs an ItemList() before it.");
+            }
+
+            return lastItem;
         }
 
         private VeneerLayoutEntry RequireLast(string method)

@@ -104,7 +104,7 @@ namespace Veneer
                 }
             }
 
-            var dropdown = new DropdownField(labels, index);
+            var dropdown = (VeneerDropdownField)VeneerDropdown.Create(labels, index, null, Brand);
             dropdown.AddToClassList("vnd-control--capped");
             var dot = new VisualElement();
             dot.style.width = 12f;
@@ -148,9 +148,8 @@ namespace Veneer
             };
             show(themeChoices[index]);
 
-            dropdown.RegisterValueChangedCallback(evt =>
+            dropdown.Changed += selected =>
             {
-                int selected = dropdown.index;
                 if (selected < 0 || selected >= themeChoices.Count)
                 {
                     return;
@@ -182,7 +181,7 @@ namespace Veneer
                 {
                     bannerRefresh();
                 }
-            });
+            };
 
             Button open = VeneerStyle.Button(
                 "Open Theme Editor", "target", "Opens Tools > Veneer > Theme Editor, where themes are made and edited.", () => EditorApplication.ExecuteMenuItem(ThemeEditorMenu), false, Brand);

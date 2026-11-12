@@ -13,10 +13,11 @@ namespace Veneer
         private const string SampleTabKey = "Veneer.ThemeEditor.SampleTab";
         private const long SampleDelayMs = 150;
 
-        private static readonly string[] SampleTabLabels = { "General", "Lists", "Limits", "States" };
-        private static readonly string[] SampleTabIcons = { "settings", "list", "lock", "eye" };
+        private static readonly string[] SampleTabLabels = { "General", "Lists" };
+        private static readonly string[] SampleTabIcons = { "settings", "list" };
         private static readonly string[] ShapeIcons = { "sphere", "cube", "target" };
         private static readonly string[] ShapeTips = { "Sphere", "Box", "Capsule" };
+        private static readonly string[] QualityTips = { "Fast, few details.", "The usual.", "Slow, every detail." };
 
         private ScrollView sampleScroll;
         private VisualElement sampleHost;
@@ -198,18 +199,28 @@ namespace Veneer
             VisualElement view = VeneerStyle.TabView(SampleTabKey, SampleTabLabels, SampleTabIcons, null, brand, out VisualElement[] pages, out _);
             root.Add(view);
 
-            // Tab 1: the everyday controls: numbers, a dropdown, segmented choices, chips, sliders, buttons, hints and bars.
-            VisualElement shape = VeneerStyle.Card("Shape", "cube", brand);
-            shape.Add(VeneerControls.NumberRow(sampleSo.FindProperty("Size"), "Radius", "m"));
-            shape.Add(VeneerControls.EnumDropdown(sampleSo.FindProperty("ColliderType"), "Collider", brand));
-            shape.Add(VeneerControls.EnumSegmented(sampleSo.FindProperty("Mode"), null, null, "Mode", brand));
-            shape.Add(VeneerControls.EnumSegmented(sampleSo.FindProperty("Shape"), ShapeIcons, ShapeTips, "Shape", brand));
+            // Tab 1: the everyday controls, one card per kind: fields, the three looks of a bool, the three looks of an enum, sliders,
+            // buttons, hints and bars. Hover, press and selected states show by themselves when the pointer is on a control.
+            VisualElement fields = VeneerStyle.Card("Fields", "sliders", brand);
+            fields.Add(VeneerControls.NumberRow(sampleSo.FindProperty("Size"), "Radius", "m"));
+            fields.Add(VeneerControls.NumberRow(sampleSo.FindProperty("Count"), "Max count"));
+            fields.Add(VeneerControls.ObjectSlot(sampleSo.FindProperty("Picture"), "Picture", typeof(Texture2D), brand));
+            pages[0].Add(fields);
+
+            VisualElement toggles = VeneerStyle.Card("Toggles", "check", brand);
             VisualElement chips = VeneerStyle.Row(true);
-            chips.Add(VeneerControls.ToggleChip(sampleSo.FindProperty("UseGravity"), "Use gravity", "bolt", brand));
-            chips.Add(VeneerControls.ToggleChip(sampleSo.FindProperty("Locked"), "Locked", "lock", brand));
-            shape.Add(chips);
-            shape.Add(VeneerControls.ObjectSlot(sampleSo.FindProperty("Picture"), "Picture", typeof(Texture2D), brand));
-            pages[0].Add(shape);
+            chips.Add(VeneerControls.ToggleChip(sampleSo.FindProperty("UseGravity"), "Chip", "bolt", brand));
+            toggles.Add(chips);
+            toggles.Add(VeneerControls.ToggleSwitch(sampleSo.FindProperty("Visible"), "Switch", brand));
+            toggles.Add(VeneerControls.ToggleCheckbox(sampleSo.FindProperty("Locked"), "Checkbox", brand));
+            pages[0].Add(toggles);
+
+            VisualElement choices = VeneerStyle.Card("Choices", "list", brand);
+            choices.Add(VeneerControls.EnumSegmented(sampleSo.FindProperty("Shape"), ShapeIcons, ShapeTips, "Segmented (icons)", brand));
+            choices.Add(VeneerControls.EnumSegmented(sampleSo.FindProperty("Mode"), null, null, "Segmented (text)", brand));
+            choices.Add(VeneerControls.EnumDropdown(sampleSo.FindProperty("ColliderType"), "Dropdown", brand));
+            choices.Add(VeneerControls.EnumRadio(sampleSo.FindProperty("Quality"), null, QualityTips, "Radio list", brand));
+            pages[0].Add(choices);
 
             VisualElement ranges = VeneerStyle.Card("Ranges", "sliders", brand);
             ranges.Add(VeneerControls.SliderRow(sampleSo.FindProperty("Bounce"), "Bounciness", "Dead", "Bouncy"));
@@ -253,15 +264,6 @@ namespace Veneer
             VisualElement list = VeneerStyle.Card("Attacks", "list", brand);
             list.Add(VeneerControls.ListEditor(sampleSo.FindProperty("Items"), "Attack list", brand));
             pages[1].Add(list);
-
-            // Tab 3: a small card, to show a tab with little in it.
-            VisualElement limits = VeneerStyle.Card("Limits", "lock", brand);
-            limits.Add(VeneerControls.NumberRow(sampleSo.FindProperty("Count"), "Max count"));
-            limits.Add(VeneerControls.ToggleChip(sampleSo.FindProperty("Locked"), "Locked", "lock", brand));
-            pages[2].Add(limits);
-
-            // Tab 4: every control in its states, side by side.
-            pages[3].Add(BuildStatesCard(brand));
         }
     }
 }

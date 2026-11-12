@@ -1,0 +1,210 @@
+/*
+ * Veneer - designed list items (Controls/VeneerItemList.cs).
+ *
+ * .vni-list is the whole control (header, empty text, the items). Every element of the list is a .vni-item, either a bordered card with a head
+ * row (.vni-item--card) or one flat row (.vni-item--row). The fields of an element sit in .vni-line rows (wrapping) made of .vni-cell
+ * boxes. Colours come from the --vn-* variables of the .vn-root the list sits in. A system may add .vni-item--error / --warn / --ok to
+ * an item container through VeneerItemDecorators. Margins and paddings that use a variable are written side by side (a shorthand
+ * cannot resolve a variable).
+ */
+
+.vni-list {
+    flex-direction: column;
+    flex-shrink: 0;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
+}
+
+.vni-list__header {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    margin-left: 0;
+}
+
+.vni-list__header > * { margin-right: var(--vn-gap); }
+
+.vni-list__title {
+    -unity-font-style: bold;
+    color: var(--vn-text);
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+    padding: 0;
+}
+
+.vni-list__notice {
+    white-space: normal;
+    margin-top: 2px;
+    margin-bottom: var(--vn-gap);
+}
+
+.vni-list__empty {
+    white-space: normal;
+    padding-top: var(--vn-pad-y);
+    padding-bottom: var(--vn-pad-y);
+    padding-left: var(--vn-pad-x);
+    padding-right: var(--vn-pad-x);
+    margin-top: 0;
+    margin-bottom: var(--vn-gap);
+    border-width: 1px;
+    border-radius: var(--vn-radius-md);
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-track);
+    -unity-text-align: middle-center;
+}
+
+/* the items; the drop marker is positioned inside it */
+.vni-list__items {
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.vni-marker {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    margin: 0;
+    background-color: var(--vn-accent);
+    border-radius: 1px;
+}
+
+/* ------------------------------------------------------------------ one element */
+
+.vni-item {
+    flex-shrink: 0;
+    margin-top: 0;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: var(--vn-gap);
+    border-width: 1px;
+    border-radius: var(--vn-radius-lg);
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-card);
+}
+
+.vni-item:hover { border-color: var(--vn-accent-line); }
+
+.vni-item--card {
+    flex-direction: column;
+    padding: 0;
+}
+
+.vni-item--row {
+    flex-direction: row;
+    align-items: flex-start;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-left: var(--vn-gap-sm);
+    padding-right: var(--vn-gap-sm);
+}
+
+.vni-item--dragging { opacity: 0.55; }
+
+.vni-item.vni-item--error { border-color: var(--vn-error-line); background-color: var(--vn-error-bg); }
+.vni-item.vni-item--warn { border-color: var(--vn-warn-line); background-color: var(--vn-warn-bg); }
+.vni-item.vni-item--ok { border-color: var(--vn-ok-line); }
+
+.vni-item__head {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    padding-top: var(--vn-gap-sm);
+    padding-bottom: var(--vn-gap-sm);
+    padding-left: var(--vn-gap-sm);
+    padding-right: var(--vn-gap-sm);
+}
+
+.vni-item__head > * { margin-right: var(--vn-gap-sm); }
+
+.vni-item__title {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: var(--vn-gap-sm);
+    padding-right: var(--vn-gap-sm);
+    -unity-font-style: bold;
+    color: var(--vn-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vni-item__title-field {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+    margin-right: var(--vn-gap-sm);
+}
+
+.vni-item__body {
+    flex-direction: column;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.vni-item--card > .vni-item__body {
+    padding-top: 0;
+    padding-left: var(--vn-pad-x);
+    padding-right: var(--vn-pad-x);
+    padding-bottom: var(--vn-pad-b);
+}
+
+.vni-item--row > .vni-item__body {
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.vni-handle {
+    flex-shrink: 0;
+    width: 20px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+    margin-right: var(--vn-gap-sm);
+    border-radius: var(--vn-radius-sm);
+}
+
+.vni-handle:hover { background-color: var(--vn-accent-soft); }
+.vni-handle:active { background-color: var(--vn-pressed); }
+
+/* ------------------------------------------------------------------ the fields of an element */
+
+.vni-line {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    flex-shrink: 0;
+    margin: 0;
+}
+
+.vni-cell {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: auto;
+    min-width: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+    margin-right: var(--vn-gap-sm);
+}
+
+/* a field row inside a cell fills the cell */
+.vni-cell > .vn-field-row,
+.vni-cell > .vn-slider-row { flex-grow: 1; }

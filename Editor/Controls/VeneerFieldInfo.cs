@@ -57,6 +57,27 @@ namespace Veneer
             return TryResolve(property, out _, out Type type) ? type : null;
         }
 
+        /// <summary>The C# type of the elements of an array or List property (read from the type, so it works while the list is empty), or null.</summary>
+        internal static Type GetElementType(SerializedProperty list)
+        {
+            UnityEngine.Object target = list.serializedObject.targetObject;
+            if (target == null)
+            {
+                return null;
+            }
+
+            Type root = target.GetType();
+            string path = list.propertyPath + ".Array.data[0]";
+            var key = (root, path);
+            if (!Cache.TryGetValue(key, out Resolved resolved))
+            {
+                resolved = Walk(root, path);
+                Cache[key] = resolved;
+            }
+
+            return resolved.Found ? resolved.ValueType : null;
+        }
+
         /// <summary>The smallest and largest value allowed by <c>[Min]</c> or <c>[Range]</c> (infinities when the field has neither).</summary>
         internal static void GetLimits(SerializedProperty property, out float min, out float max)
         {

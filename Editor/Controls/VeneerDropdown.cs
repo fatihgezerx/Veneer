@@ -61,6 +61,24 @@ namespace Veneer
         }
 
         /// <summary>
+        /// Makes a dropdown over the members of <typeparamref name="TEnum"/> (their names made readable), showing <paramref name="value"/>:
+        /// for code that holds the value itself (a window's model) rather than a serialized property. <paramref name="changed"/> gets the
+        /// member the user picked; set the shown member from code with <see cref="VeneerEnumDropdownField{TEnum}.EnumValue"/>.
+        /// </summary>
+        public static VeneerEnumDropdownField<TEnum> CreateEnum<TEnum>(TEnum value, Action<TEnum> changed, VeneerBrand brand = null)
+            where TEnum : struct, Enum
+        {
+            var field = new VeneerEnumDropdownField<TEnum>(brand);
+            field.EnumValue = value;
+            if (changed != null)
+            {
+                field.EnumChanged += changed;
+            }
+
+            return field;
+        }
+
+        /// <summary>
         /// True when an enum property can be drawn by the dropdown without losing anything Unity would draw: a plain (non-flags) enum whose
         /// C# field has no attribute that needs a drawer and whose type has no custom property drawer. When it cannot be known the answer is false.
         /// </summary>
@@ -144,7 +162,7 @@ namespace Veneer
     /// it has focus, opens the animated list; Up, Down, Home, End, PageUp, PageDown, a letter, Enter and Escape work while it is open.
     /// Only one list is open at a time. The list is removed when the button leaves the panel and before a domain reload.
     /// </summary>
-    public sealed class VeneerDropdownField : VisualElement
+    public class VeneerDropdownField : VisualElement
     {
         private const string FieldClass = "vn-dd";
         private const string OpenClass = "vn-dd--open";
@@ -167,7 +185,12 @@ namespace Veneer
         private const float CloseMilliseconds = 120f;
         private const float StartScaleY = 0.55f;
         private const float CloseScaleY = 0.8f;
+        // Pixels the list starts pulled towards the button before it drops into place.
+        private const float PullPixels = 10f;
         private const int PageSize = 8;
+
+        // The pull of the list that is opening (PullPixels scaled by the motion setting), applied the moment it is placed.
+        private float pull;
 
         // One class per item index (capped): each one carries a transition delay so the items fade in one after the other.
         private static readonly string[] StaggerClasses =
@@ -413,7 +436,7 @@ namespace Veneer
             }
 
             FinishClosing();
-            panelRoot = panel.visualTree;
+            panelRoot = OverlayHost();
             BuildPopup();
             isOpen = true;
             placed = false;
@@ -425,6 +448,21 @@ namespace Veneer
             panelRoot.RegisterCallback(panelWheel, TrickleDown.TrickleDown);
             panelRoot.RegisterCallback(panelGeometry);
             EditorApplication.focusChanged += OnApplicationFocusChanged;
+        }
+
+        // Where the list goes: the window's own root (the ancestor of the button right under the panel's tree), not the panel's tree itself.
+        // The editor gives its default style sheet (fonts, text colours, sizes) to each window root; an element added above it has no
+        // font, so its labels draw nothing. Last child of that root, absolutely positioned, the list still draws over everything in the window.
+        private VisualElement OverlayHost()
+        {
+            VisualElement tree = panel.visualTree;
+            VisualElement current = this;
+            while (current.parent != null && current.parent != tree)
+            {
+                current = current.parent;
+            }
+
+            return current.parent == tree && current != this ? current : tree;
         }
 
         private void BuildPopup()
@@ -511,14 +549,19 @@ namespace Veneer
             view.style.transformOrigin = new TransformOrigin(Length.Percent(50f), Length.Percent(0f));
             if (motion > 0f)
             {
+                // Pulled up short and a little towards the button, then let go: the height overshoots a little and settles (back ease, no elastic wobble),
+                // the whole list drops into place (back ease), and it fades in meanwhile.
                 float startY = Mathf.Clamp(1f - (1f - StartScaleY) * motion, 0.2f, 0.95f);
                 view.style.scale = new Scale(new Vector3(1f, startY, 1f));
+                pull = PullPixels * motion;
                 SetTransitions(
                     view,
                     OpenFadeMilliseconds * motion,
                     new EasingFunction(EasingMode.EaseOut),
                     OpenMilliseconds * motion,
-                    new EasingFunction(EasingMode.EaseOutElastic));
+                    new EasingFunction(EasingMode.EaseOutBack),
+                    OpenMilliseconds * 0.7f * motion,
+                    new EasingFunction(EasingMode.EaseOutBack));
             }
 
             view.RegisterCallback(keyDown, TrickleDown.TrickleDown);
@@ -568,6 +611,8 @@ namespace Veneer
             popup.style.left = left;
             popup.style.top = top;
             popup.style.transformOrigin = new TransformOrigin(Length.Percent(50f), Length.Percent(openUp ? 100f : 0f));
+            // Pulled towards the button (up for a list below it, down for one above it); BeginOpen lets it drop into place.
+            popup.style.translate = new Translate(0f, openUp ? pull : -pull);
         }
 
         // The next tick after Place: the start values are resolved by now, so changing them runs the transitions.
@@ -580,6 +625,7 @@ namespace Veneer
 
             popup.style.opacity = 1f;
             popup.style.scale = new Scale(Vector3.one);
+            popup.style.translate = new Translate(0f, 0f);
             popup.AddToClassList(PopupOpenClass);
             ScrollToActive(true);
             popup.Focus();
@@ -942,18 +988,22 @@ namespace Veneer
 
         // ------------------------------------------------------------------ helpers
 
+        // Opacity, scale and translate transitions; the translate (the drop into place) uses the scale's time and easing unless given its own.
         private static void SetTransitions(
-            VisualElement element, float fadeMilliseconds, EasingFunction fadeEasing, float scaleMilliseconds, EasingFunction scaleEasing)
+            VisualElement element, float fadeMilliseconds, EasingFunction fadeEasing, float scaleMilliseconds, EasingFunction scaleEasing,
+            float translateMilliseconds = -1f, EasingFunction? translateEasing = null)
         {
-            element.style.transitionProperty = new List<StylePropertyName>(2)
+            element.style.transitionProperty = new List<StylePropertyName>(3)
             {
-                new StylePropertyName("opacity"), new StylePropertyName("scale"),
+                new StylePropertyName("opacity"), new StylePropertyName("scale"), new StylePropertyName("translate"),
             };
-            element.style.transitionDuration = new List<TimeValue>(2)
+            element.style.transitionDuration = new List<TimeValue>(3)
             {
-                new TimeValue(fadeMilliseconds, TimeUnit.Millisecond), new TimeValue(scaleMilliseconds, TimeUnit.Millisecond),
+                new TimeValue(fadeMilliseconds, TimeUnit.Millisecond),
+                new TimeValue(scaleMilliseconds, TimeUnit.Millisecond),
+                new TimeValue(translateMilliseconds >= 0f ? translateMilliseconds : scaleMilliseconds, TimeUnit.Millisecond),
             };
-            element.style.transitionTimingFunction = new List<EasingFunction>(2) { fadeEasing, scaleEasing };
+            element.style.transitionTimingFunction = new List<EasingFunction>(3) { fadeEasing, scaleEasing, translateEasing ?? scaleEasing };
             element.style.transitionDelay = new List<TimeValue>(1) { new TimeValue(0f, TimeUnit.Millisecond) };
         }
 
@@ -971,6 +1021,52 @@ namespace Veneer
             }
 
             return copy;
+        }
+    }
+
+    /// <summary>
+    /// A <see cref="VeneerDropdownField"/> over the members of an enum, for code that holds the value itself (not a serialized property):
+    /// the members are listed in declaration order with readable names; <see cref="EnumValue"/> reads and sets the shown member without
+    /// raising <see cref="EnumChanged"/>, which fires with the member the user picked. Made with <see cref="VeneerDropdown.CreateEnum{TEnum}"/>.
+    /// </summary>
+    public sealed class VeneerEnumDropdownField<TEnum> : VeneerDropdownField where TEnum : struct, Enum
+    {
+        private static readonly TEnum[] Members = (TEnum[])Enum.GetValues(typeof(TEnum));
+        private static readonly string[] Names = BuildNames();
+
+        /// <summary>Creates the dropdown with every member of the enum and nothing selected.</summary>
+        public VeneerEnumDropdownField(VeneerBrand brand = null) : base(brand)
+        {
+            SetChoices(Names, -1);
+            Changed += index =>
+            {
+                Action<TEnum> handler = EnumChanged;
+                if (handler != null && index >= 0 && index < Members.Length)
+                {
+                    handler(Members[index]);
+                }
+            };
+        }
+
+        /// <summary>Raised with the member the user picked. Not raised by <see cref="EnumValue"/>.</summary>
+        public event Action<TEnum> EnumChanged;
+
+        /// <summary>The shown member; setting it does not raise <see cref="EnumChanged"/>. Reads the first member while nothing is selected.</summary>
+        public TEnum EnumValue
+        {
+            get => Value >= 0 && Value < Members.Length ? Members[Value] : Members.Length > 0 ? Members[0] : default;
+            set => SetValue(Array.IndexOf(Members, value));
+        }
+
+        private static string[] BuildNames()
+        {
+            var names = new string[Members.Length];
+            for (int i = 0; i < names.Length; i++)
+            {
+                names[i] = UnityEditor.ObjectNames.NicifyVariableName(Members[i].ToString());
+            }
+
+            return names;
         }
     }
 }

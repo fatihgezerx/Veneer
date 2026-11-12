@@ -1,0 +1,88 @@
+/*
+ * Veneer - 3D model preview (Controls/VeneerModelPreview.cs).
+ *
+ * .vn-mp is the frame in the kit's card look (border, radius, card fill); the rendered picture (.vn-mp__image) fills it and the toolbar
+ * (.vn-mp__bar) floats over its top edge on a translucent plate so the buttons read on any picture. The sheet is added to the Veneer root the
+ * control sits in; every colour is a --vn-* variable of that root. The 1 px .vn-mp__host is the IMGUI element the picture is drawn from.
+ */
+
+.vn-mp {
+    height: 300px;
+    min-height: 120px;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border-width: 1px;
+    border-radius: var(--vn-radius-lg);
+    border-color: var(--vn-card-border);
+    background-color: var(--vn-card);
+    transition-property: border-color;
+    transition-duration: 0.12s;
+}
+
+.vn-mp:focus { border-color: var(--vn-accent-line); }
+
+.vn-root.vn-mp { padding: 0; }
+
+.vn-mp > .vn-mp__image {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.vn-mp > .vn-mp__host {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: 1px;
+}
+
+.vn-mp > .vn-mp__hint {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0;
+    white-space: normal;
+    color: var(--vn-text-muted);
+    -unity-text-align: middle-center;
+}
+
+.vn-mp > .vn-mp__bar {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 6px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.vn-mp__bar > .vn-segmented,
+.vn-mp__bar > .vn-mp__tools {
+    background-color: rgba(20, 20, 20, 0.72);
+}
+
+.vn-mp__bar > .vn-segmented { align-self: center; }
+
+.vn-mp__bar > .vn-spacer { flex-grow: 1; }
+
+.vn-mp__tools {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 2px;
+    border-width: 1px;
+    border-radius: var(--vn-radius-seg);
+    border-color: var(--vn-card-border);
+}
+
+.vn-root.vn-root--light .vn-mp__bar > .vn-segmented,
+.vn-root.vn-root--light .vn-mp__bar > .vn-mp__tools {
+    background-color: rgba(240, 240, 240, 0.80);
+}

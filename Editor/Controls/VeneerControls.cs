@@ -82,6 +82,7 @@ namespace Veneer
             field.tooltip = property.tooltip;
             field.AddToClassList("vn-number");
             VisualElement row = VeneerStyle.FieldRow(label ?? property.displayName, field, property.tooltip, out Label title);
+            VeneerScrub.SetLimits(title, min, max);
             if (!string.IsNullOrEmpty(unit))
             {
                 var unitLabel = new Label(unit);
@@ -129,7 +130,7 @@ namespace Veneer
 
             var top = new VisualElement();
             top.AddToClassList("vn-slider-row__top");
-            var title = new Label(label ?? property.displayName);
+            var title = new Label(VeneerText.TitleCase(label ?? property.displayName));
             title.AddToClassList("vn-field-row__label");
             top.Add(title);
 
@@ -173,6 +174,8 @@ namespace Veneer
 
             number.tooltip = property.tooltip;
             number.AddToClassList("vn-number");
+            VeneerScrub.AttachIfNumber(title, number);
+            VeneerScrub.SetLimits(title, min, max);
             top.Add(number);
             if (!string.IsNullOrEmpty(unit))
             {
@@ -352,12 +355,34 @@ namespace Veneer
 
             var top = new VisualElement();
             top.AddToClassList("vn-slider-row__top");
-            var title = new Label(label ?? tracked.displayName);
+            var title = new Label(VeneerText.TitleCase(label ?? tracked.displayName));
             title.AddToClassList("vn-field-row__label");
             top.Add(title);
-            var readout = new Label();
-            readout.AddToClassList("vn-label-muted");
-            top.Add(readout);
+            // The two ends as numbers you can type, beside the slider's readout place: "min to max unit".
+            var numbers = new VisualElement();
+            numbers.style.flexDirection = FlexDirection.Row;
+            numbers.style.alignItems = Align.Center;
+            numbers.style.flexGrow = 1f;
+            var minField = new FloatField();
+            var maxField = new FloatField();
+            minField.style.width = 58f;
+            maxField.style.width = 58f;
+            minField.tooltip = "Lowest value";
+            maxField.tooltip = "Highest value";
+            numbers.Add(minField);
+            var between = VeneerStyle.MutedLabel("to");
+            between.style.marginLeft = 4f;
+            between.style.marginRight = 4f;
+            numbers.Add(between);
+            numbers.Add(maxField);
+            if (!string.IsNullOrEmpty(unit))
+            {
+                var unitLabel = VeneerStyle.MutedLabel(unit);
+                unitLabel.style.marginLeft = 4f;
+                numbers.Add(unitLabel);
+            }
+
+            top.Add(numbers);
             block.Add(top);
 
             Vector2 start = tracked.vector2Value;
@@ -371,6 +396,22 @@ namespace Veneer
             });
             block.Add(slider);
 
+            // A typed number may go past the slider's range (the slider only shows it clamped); min never passes max.
+            minField.RegisterValueChangedCallback(evt =>
+            {
+                Vector2 value = tracked.vector2Value;
+                value.x = Mathf.Min(evt.newValue, value.y);
+                tracked.vector2Value = value;
+                tracked.serializedObject.ApplyModifiedProperties();
+            });
+            maxField.RegisterValueChangedCallback(evt =>
+            {
+                Vector2 value = tracked.vector2Value;
+                value.y = Mathf.Max(evt.newValue, value.x);
+                tracked.vector2Value = value;
+                tracked.serializedObject.ApplyModifiedProperties();
+            });
+
             if (!string.IsNullOrEmpty(leftEnd) || !string.IsNullOrEmpty(rightEnd))
             {
                 var ends = new VisualElement();
@@ -380,20 +421,17 @@ namespace Veneer
                 block.Add(ends);
             }
 
-            // The readout text is made only when the shown numbers change, so a refresh that finds the same value allocates nothing.
-            Vector2 shown = new Vector2(float.NaN, float.NaN);
-            bool mixedShown = false;
-            string suffix = string.IsNullOrEmpty(unit) ? string.Empty : " " + unit;
             VeneerBinding.Hook(block, tracked, title, block, () =>
             {
                 bool mixed = tracked.hasMultipleDifferentValues;
                 Vector2 value = tracked.vector2Value;
                 slider.SetValueWithoutNotify(value);
-                if (mixed != mixedShown || value != shown)
+                minField.showMixedValue = mixed;
+                maxField.showMixedValue = mixed;
+                if (!mixed)
                 {
-                    mixedShown = mixed;
-                    shown = value;
-                    readout.text = mixed ? "different values" : value.x.ToString("0.##") + " to " + value.y.ToString("0.##") + suffix;
+                    minField.SetValueWithoutNotify(value.x);
+                    maxField.SetValueWithoutNotify(value.y);
                 }
             });
             return block;
@@ -412,7 +450,7 @@ namespace Veneer
         public static VisualElement ToggleChip(SerializedProperty property, string label = null, string icon = null, VeneerBrand brand = null)
         {
             property = property.Copy();
-            VisualElement chip = VeneerStyle.Chip(label ?? property.displayName, icon, property.boolValue, on =>
+            VisualElement chip = VeneerStyle.Chip(VeneerText.TitleCase(label ?? property.displayName), icon, property.boolValue, on =>
             {
                 property.boolValue = on;
                 property.serializedObject.ApplyModifiedProperties();
@@ -566,6 +604,145 @@ namespace Veneer
                 field.SetValue(property.hasMultipleDifferentValues ? -1 : EnumIndexOf(property, values));
             });
             return row;
+        }
+
+        /// <summary>
+        /// The bare animated dropdown (no label row) bound to an enum property: for a header or a table cell that places the control itself.
+        /// Same binding, Undo, prefab-override and multi-edit rules as <see cref="EnumDropdown"/>.
+        /// </summary>
+        /// <param name="property">An enum property that is not a flags enum.</param>
+        /// <param name="brand">Brand for icon lookup; may be null.</param>
+        public static VeneerDropdownField EnumDropdownField(SerializedProperty property, VeneerBrand brand = null)
+        {
+            if (property.propertyType != SerializedPropertyType.Enum)
+            {
+                throw new ArgumentException("EnumDropdownField needs an enum property, not '" + property.propertyPath + "'.", nameof(property));
+            }
+
+            property = property.Copy();
+            string[] display = property.enumDisplayNames;
+            int[] values = EnumValueTable(property, display.Length);
+            var field = (VeneerDropdownField)VeneerDropdown.Create(display, -1, index =>
+            {
+                if (values != null)
+                {
+                    property.intValue = values[index];
+                }
+                else
+                {
+                    property.enumValueIndex = index;
+                }
+
+                property.serializedObject.ApplyModifiedProperties();
+            }, brand);
+            field.tooltip = property.tooltip;
+            VeneerBinding.Hook(field, property, null, field, () =>
+            {
+                field.SetValue(property.hasMultipleDifferentValues ? -1 : EnumIndexOf(property, values));
+            });
+            return field;
+        }
+
+        /// <summary>
+        /// A kit field row with a sliding on/off switch (<see cref="VeneerStyle.Switch"/>) bound to a bool property: the settings-page look.
+        /// A click writes the value to every selected object (one Undo step); when they differ the knob waits in the middle, faded.
+        /// </summary>
+        /// <param name="property">A bool property.</param>
+        /// <param name="label">The row label; null uses the property's display name.</param>
+        /// <param name="brand">Brand for icon lookup; may be null.</param>
+        /// <param name="tooltip">The row tooltip; null uses the property's.</param>
+        public static VisualElement ToggleSwitch(SerializedProperty property, string label = null, VeneerBrand brand = null, string tooltip = null)
+        {
+            property = property.Copy();
+            VisualElement control = VeneerStyle.Switch(property.boolValue, on =>
+            {
+                property.boolValue = on;
+                property.serializedObject.ApplyModifiedProperties();
+            });
+            string tip = tooltip ?? property.tooltip;
+            control.tooltip = tip;
+            VisualElement row = VeneerStyle.FieldRow(label ?? property.displayName, control, tip, out Label title);
+            VeneerBinding.Hook(row, property, title, row, () =>
+            {
+                VeneerStyle.SetSwitchState(control, property.boolValue, property.hasMultipleDifferentValues);
+            });
+            return row;
+        }
+
+        /// <summary>
+        /// A kit field row with a box and a tick (<see cref="VeneerStyle.Checkbox"/>) bound to a bool property: Unity's toggle in the kit's
+        /// look. A click writes the value to every selected object (one Undo step); when they differ the box shows a dash.
+        /// </summary>
+        /// <param name="property">A bool property.</param>
+        /// <param name="label">The row label; null uses the property's display name.</param>
+        /// <param name="brand">Brand for icon lookup; may be null.</param>
+        /// <param name="tooltip">The row tooltip; null uses the property's.</param>
+        public static VisualElement ToggleCheckbox(SerializedProperty property, string label = null, VeneerBrand brand = null, string tooltip = null)
+        {
+            property = property.Copy();
+            VisualElement control = VeneerStyle.Checkbox(property.boolValue, on =>
+            {
+                property.boolValue = on;
+                property.serializedObject.ApplyModifiedProperties();
+            }, brand);
+            string tip = tooltip ?? property.tooltip;
+            control.tooltip = tip;
+            VisualElement row = VeneerStyle.FieldRow(label ?? property.displayName, control, tip, out Label title);
+            VeneerBinding.Hook(row, property, title, row, () =>
+            {
+                VeneerStyle.SetCheckboxState(control, property.boolValue, property.hasMultipleDifferentValues);
+            });
+            return row;
+        }
+
+        /// <summary>
+        /// A bound enum shown as a vertical radio list (<see cref="VeneerStyle.RadioList"/>): one line per member with a dot, an optional
+        /// icon and a tooltip. For an enum with non-sequential values the real value is written. With several selected objects that differ
+        /// nothing is selected. A <c>[Flags]</c> enum is not handled here (use <see cref="FlagChips"/>).
+        /// </summary>
+        /// <param name="property">An enum property that is not a flags enum.</param>
+        /// <param name="icons">Icon name per member, in member order; may be null or shorter.</param>
+        /// <param name="tooltips">Tooltip per member; may be null or shorter.</param>
+        /// <param name="label">A label for the row; null returns just the list without a label column.</param>
+        /// <param name="brand">Brand for icon lookup; may be null.</param>
+        public static VisualElement EnumRadio(
+            SerializedProperty property, string[] icons = null, string[] tooltips = null, string label = null, VeneerBrand brand = null)
+        {
+            if (property.propertyType != SerializedPropertyType.Enum)
+            {
+                throw new ArgumentException("EnumRadio needs an enum property, not '" + property.propertyPath + "'.", nameof(property));
+            }
+
+            property = property.Copy();
+            string[] display = property.enumDisplayNames;
+            int[] values = EnumValueTable(property, display.Length);
+            VisualElement group = VeneerStyle.RadioList(display, tooltips, icons, -1, index =>
+            {
+                if (values != null)
+                {
+                    property.intValue = values[index];
+                }
+                else
+                {
+                    property.enumValueIndex = index;
+                }
+
+                property.serializedObject.ApplyModifiedProperties();
+            }, brand);
+            group.tooltip = property.tooltip;
+
+            VisualElement result = group;
+            Label title = null;
+            if (!string.IsNullOrEmpty(label))
+            {
+                result = VeneerStyle.FieldRow(label, group, property.tooltip, out title);
+            }
+
+            VeneerBinding.Hook(result, property, title, result, () =>
+            {
+                VeneerStyle.SetRadioSelected(group, property.hasMultipleDifferentValues ? -1 : EnumIndexOf(property, values));
+            });
+            return result;
         }
 
         // ------------------------------------------------------------------ vectors, colours, curves
@@ -722,7 +899,7 @@ namespace Veneer
 
             var header = new VisualElement();
             header.AddToClassList("vn-list__header");
-            var title = new Label(label ?? property.displayName);
+            var title = new Label(VeneerText.TitleCase(label ?? property.displayName));
             title.AddToClassList("vn-list__title");
             header.Add(title);
             Label count = VeneerStyle.Pill("0", "info");

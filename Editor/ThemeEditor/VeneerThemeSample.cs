@@ -27,6 +27,17 @@ namespace Veneer
         Mesh
     }
 
+    /// <summary>The choices of the sample's radio list (three, with a tooltip each).</summary>
+    internal enum VeneerThemeSampleQuality
+    {
+        /// <summary>First choice.</summary>
+        Low,
+        /// <summary>Second choice.</summary>
+        Medium,
+        /// <summary>Third choice.</summary>
+        High
+    }
+
     /// <summary>The choices of the sample's segmented control with text labels.</summary>
     internal enum VeneerThemeSampleMode
     {
@@ -63,11 +74,17 @@ namespace Veneer
         /// <summary>A whole number.</summary>
         [Min(0)] public int Count = 12;
 
-        /// <summary>A toggle that is on.</summary>
+        /// <summary>A toggle that is on (shown as a chip).</summary>
         public bool UseGravity = true;
 
-        /// <summary>A toggle that is off.</summary>
+        /// <summary>A toggle that is off (shown as a checkbox).</summary>
         public bool Locked;
+
+        /// <summary>A toggle that is on (shown as a switch).</summary>
+        public bool Visible = true;
+
+        /// <summary>An enum shown as a radio list.</summary>
+        public VeneerThemeSampleQuality Quality = VeneerThemeSampleQuality.Medium;
 
         /// <summary>An enum shown as segmented icons.</summary>
         public VeneerThemeSampleShape Shape = VeneerThemeSampleShape.Box;

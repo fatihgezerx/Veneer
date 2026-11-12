@@ -94,13 +94,8 @@ namespace Veneer
             VeneerTheme own = theme;
             bool hasOwn = own != null;
 
-            if (!AssetDatabase.IsValidFolder(ThemeFolder))
-            {
-                AssetDatabase.CreateFolder("Assets", "Veneer Themes");
-            }
-
             string themeName = UniqueThemeName(DefaultThemeName, null);
-            string path = AssetDatabase.GenerateUniqueAssetPath(ThemeFolder + "/" + FileBase(themeName) + ".asset");
+            string path = AssetDatabase.GenerateUniqueAssetPath(VeneerDataFolders.EnsureThemes() + "/" + FileBase(themeName) + ".asset");
             var created = CreateInstance<VeneerTheme>();
             created.Custom = true;
             created.BrandName = string.Empty;

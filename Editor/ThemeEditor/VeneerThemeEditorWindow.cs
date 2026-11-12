@@ -18,13 +18,13 @@ namespace Veneer
     /// <c>SerializedObject</c> (Undo works) and is saved automatically a moment after the last change.
     /// </summary>
     /// <remarks>
-    /// Split over several files: <c>.List.cs</c> (left pane), <c>.Sample.cs</c> (live sample), <c>.States.cs</c> (the sample's States
-    /// card), <c>.Properties.cs</c> (right pane) and <c>.Custom.cs</c> (making, renaming and deleting custom themes).
+    /// Split over several files: <c>.List.cs</c> (left pane), <c>.Sample.cs</c> (live sample), <c>.Properties.cs</c> (right pane) and
+    /// <c>.Custom.cs</c> (making, renaming and deleting custom themes).
     /// </remarks>
     public sealed partial class VeneerThemeEditorWindow : VeneerWindow
     {
         private const string MenuPath = "Tools/Veneer/Theme Editor";
-        private const string ThemeFolder = "Assets/Veneer Themes";
+        private static string ThemeFolder => VeneerDataFolders.Themes;
         private const string SheetRelativePath = "/ThemeEditor/ThemeEditor.uss";
         private const long SaveDelayMs = 400;
 
@@ -475,12 +475,7 @@ namespace Veneer
                 return false;
             }
 
-            if (!AssetDatabase.IsValidFolder(ThemeFolder))
-            {
-                AssetDatabase.CreateFolder("Assets", "Veneer Themes");
-            }
-
-            string path = AssetDatabase.GenerateUniqueAssetPath(ThemeFolder + "/" + FileBase(selectedBrand) + " Theme.asset");
+            string path = AssetDatabase.GenerateUniqueAssetPath(VeneerDataFolders.EnsureThemes() + "/" + FileBase(selectedBrand) + " Theme.asset");
             var created = CreateInstance<VeneerTheme>();
             created.BrandName = IsGlobalSelected ? string.Empty : selectedBrand;
             AssetDatabase.CreateAsset(created, path);

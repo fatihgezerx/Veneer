@@ -160,7 +160,7 @@ namespace Veneer
         /// <summary>
         /// A label column plus a control, in one line with a fixed label width (<c>vn-field-row</c>), so a card's fields line up.
         /// </summary>
-        /// <param name="label">The label text.</param>
+        /// <param name="label">The label text; every word is shown with a capital first letter (<see cref="VeneerText.TitleCase"/>).</param>
         /// <param name="control">The control; it takes the rest of the line.</param>
         /// <param name="tooltip">Tooltip of the whole row; may be null.</param>
         /// <param name="labelElement">The label, for the prefab-override mark.</param>
@@ -169,9 +169,11 @@ namespace Veneer
             var row = new VisualElement();
             row.AddToClassList("vn-field-row");
             row.tooltip = tooltip;
-            labelElement = new Label(label);
+            // The one place every field row gets its label, so every word starts with a capital letter everywhere.
+            labelElement = new Label(VeneerText.TitleCase(label));
             labelElement.AddToClassList("vn-field-row__label");
             row.Add(labelElement);
+            VeneerScrub.AttachIfNumber(labelElement, control);
             control.AddToClassList("vn-field-row__control");
             row.Add(control);
             return row;
@@ -410,8 +412,42 @@ namespace Veneer
                 group.Add(tab);
             }
 
+            // A bar too narrow for text shows only the icons (see UpdateTabsCompact); the text shrinks with an ellipsis before that.
+            group.RegisterCallback<GeometryChangedEvent>(evt =>
+            {
+                if (!Mathf.Approximately(evt.oldRect.width, evt.newRect.width))
+                {
+                    UpdateTabsCompact(group, evt.newRect.width);
+                }
+            });
             SetSegmentedSelected(group, selected);
             return group;
+        }
+
+        // Width one tab needs for its icon, its padding and a few letters; below it the tab of a bar drops its text. It depends on the bar's
+        // width only (never on what is shown), so hiding the text cannot flip the state back and forth.
+        private const float CompactTabWidth = 64f;
+        private const string TabCompactClass = "vn-tab--compact";
+
+        private static void UpdateTabsCompact(VisualElement bar, float width)
+        {
+            int visible = 0;
+            for (int i = 0; i < bar.childCount; i++)
+            {
+                if (bar[i].resolvedStyle.display != DisplayStyle.None)
+                {
+                    visible++;
+                }
+            }
+
+            bool compact = visible > 0 && width / visible < CompactTabWidth;
+            for (int i = 0; i < bar.childCount; i++)
+            {
+                VisualElement tab = bar[i];
+                // Only a tab that has an icon can lose its text.
+                bool hasIcon = tab.childCount > 0 && tab[0].ClassListContains("vn-icon");
+                tab.EnableInClassList(TabCompactClass, compact && hasIcon);
+            }
         }
 
         /// <summary>
@@ -555,6 +591,241 @@ namespace Veneer
         public static Label ChipLabel(VisualElement chip)
         {
             return chip.Q<Label>(className: "vn-chip__label");
+        }
+
+        // ------------------------------------------------------------------ switch, checkbox, radio
+
+        private const string SwitchOnClass = "vn-switch--on";
+        private const string SwitchMixedClass = "vn-switch--mixed";
+        private const string CheckOnClass = "vn-check--on";
+        private const string CheckMixedClass = "vn-check--mixed";
+        private const string RadioSelectedClass = "vn-radio__item--selected";
+
+        /// <summary>
+        /// A sliding on/off switch (<c>vn-switch</c>: a track with a knob that slides to the right when on), the settings-page look for a
+        /// bool. It has no text of its own: put it in a <see cref="FieldRow"/>. A click flips it and calls <paramref name="changed"/>; read
+        /// and set it with <see cref="IsSwitchOn"/> and <see cref="SetSwitchState"/>. The slide is a USS transition (the motion setting scales it).
+        /// </summary>
+        public static VisualElement Switch(bool on, Action<bool> changed)
+        {
+            var control = new VisualElement();
+            control.AddToClassList("vn-switch");
+            control.focusable = true;
+            control.tabIndex = 0;
+            var track = new VisualElement();
+            track.AddToClassList("vn-switch__track");
+            track.pickingMode = PickingMode.Ignore;
+            var knob = new VisualElement();
+            knob.AddToClassList("vn-switch__knob");
+            knob.pickingMode = PickingMode.Ignore;
+            track.Add(knob);
+            control.Add(track);
+            control.EnableInClassList(SwitchOnClass, on);
+            control.AddManipulator(new Clickable(() => FlipSwitch(control, changed)));
+            control.RegisterCallback<KeyDownEvent>(evt =>
+            {
+                if (evt.keyCode == KeyCode.Space || evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+                {
+                    FlipSwitch(control, changed);
+                    evt.StopPropagation();
+                }
+            });
+            return control;
+        }
+
+        private static void FlipSwitch(VisualElement control, Action<bool> changed)
+        {
+            if (!control.enabledInHierarchy)
+            {
+                return;
+            }
+
+            bool next = !control.ClassListContains(SwitchOnClass);
+            control.EnableInClassList(SwitchOnClass, next);
+            control.EnableInClassList(SwitchMixedClass, false);
+            if (changed != null)
+            {
+                changed(next);
+            }
+        }
+
+        /// <summary>Whether a switch made by <see cref="Switch"/> is on.</summary>
+        public static bool IsSwitchOn(VisualElement control)
+        {
+            return control.ClassListContains(SwitchOnClass);
+        }
+
+        /// <summary>Sets a switch on or off without calling its callback; <paramref name="mixed"/> parks the knob in the middle, faded (several objects differ).</summary>
+        public static void SetSwitchState(VisualElement control, bool on, bool mixed)
+        {
+            control.EnableInClassList(SwitchOnClass, on && !mixed);
+            control.EnableInClassList(SwitchMixedClass, mixed);
+        }
+
+        /// <summary>
+        /// A box with a tick (<c>vn-check</c>): Unity's toggle in the kit's look. The tick pops in when it is turned on. It has no text of its
+        /// own: put it in a <see cref="FieldRow"/>. Read and set it with <see cref="IsCheckboxOn"/> and <see cref="SetCheckboxState"/>.
+        /// </summary>
+        public static VisualElement Checkbox(bool on, Action<bool> changed, VeneerBrand brand = null)
+        {
+            var control = new VisualElement();
+            control.AddToClassList("vn-check");
+            control.focusable = true;
+            control.tabIndex = 0;
+            var box = new VisualElement();
+            box.AddToClassList("vn-check__box");
+            box.pickingMode = PickingMode.Ignore;
+            VisualElement mark = IconElement("check", "vn-check__mark", brand);
+            mark.pickingMode = PickingMode.Ignore;
+            box.Add(mark);
+            var dash = new VisualElement();
+            dash.AddToClassList("vn-check__dash");
+            dash.pickingMode = PickingMode.Ignore;
+            box.Add(dash);
+            control.Add(box);
+            control.EnableInClassList(CheckOnClass, on);
+            control.AddManipulator(new Clickable(() => FlipCheckbox(control, changed)));
+            control.RegisterCallback<KeyDownEvent>(evt =>
+            {
+                if (evt.keyCode == KeyCode.Space || evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+                {
+                    FlipCheckbox(control, changed);
+                    evt.StopPropagation();
+                }
+            });
+            return control;
+        }
+
+        private static void FlipCheckbox(VisualElement control, Action<bool> changed)
+        {
+            if (!control.enabledInHierarchy)
+            {
+                return;
+            }
+
+            bool next = !control.ClassListContains(CheckOnClass);
+            control.EnableInClassList(CheckOnClass, next);
+            control.EnableInClassList(CheckMixedClass, false);
+            if (changed != null)
+            {
+                changed(next);
+            }
+        }
+
+        /// <summary>Whether a checkbox made by <see cref="Checkbox"/> is ticked.</summary>
+        public static bool IsCheckboxOn(VisualElement control)
+        {
+            return control.ClassListContains(CheckOnClass);
+        }
+
+        /// <summary>Ticks or clears a checkbox without calling its callback; <paramref name="mixed"/> shows a dash instead (several objects differ).</summary>
+        public static void SetCheckboxState(VisualElement control, bool on, bool mixed)
+        {
+            control.EnableInClassList(CheckOnClass, on && !mixed);
+            control.EnableInClassList(CheckMixedClass, mixed);
+        }
+
+        /// <summary>
+        /// A vertical list of choices with a dot per entry (<c>vn-radio</c>, children <c>vn-radio__item</c>), one selected: the long-form
+        /// look for an enum, with room for a tooltip per choice. A click selects and calls <paramref name="changed"/> with the index; read and
+        /// set it with <see cref="GetRadioSelected"/> and <see cref="SetRadioSelected"/>.
+        /// </summary>
+        /// <param name="names">The text of each choice.</param>
+        /// <param name="tooltips">Tooltip per choice (may be null or shorter).</param>
+        /// <param name="icons">Icon name per choice (may be null, shorter, or hold empty entries).</param>
+        /// <param name="selected">Index selected at the start; -1 for none.</param>
+        /// <param name="changed">Called after a click changed the selection.</param>
+        /// <param name="brand">Brand for icon lookup; may be null.</param>
+        public static VisualElement RadioList(
+            string[] names, string[] tooltips, string[] icons, int selected, Action<int> changed, VeneerBrand brand = null)
+        {
+            var group = new VisualElement();
+            group.AddToClassList("vn-radio");
+            int count = names == null ? 0 : names.Length;
+            for (int i = 0; i < count; i++)
+            {
+                int index = i;
+                var item = new VisualElement();
+                item.AddToClassList("vn-radio__item");
+                item.focusable = true;
+                item.tabIndex = 0;
+                item.userData = i;
+                if (tooltips != null && i < tooltips.Length && !string.IsNullOrEmpty(tooltips[i]))
+                {
+                    item.tooltip = tooltips[i];
+                }
+
+                var dot = new VisualElement();
+                dot.AddToClassList("vn-radio__dot");
+                dot.pickingMode = PickingMode.Ignore;
+                var fill = new VisualElement();
+                fill.AddToClassList("vn-radio__fill");
+                fill.pickingMode = PickingMode.Ignore;
+                dot.Add(fill);
+                item.Add(dot);
+                if (icons != null && i < icons.Length && !string.IsNullOrEmpty(icons[i]))
+                {
+                    VisualElement icon = IconElement(icons[i], "vn-radio__icon", brand);
+                    icon.pickingMode = PickingMode.Ignore;
+                    item.Add(icon);
+                }
+
+                var text = new Label(names[i]);
+                text.AddToClassList("vn-radio__label");
+                text.pickingMode = PickingMode.Ignore;
+                item.Add(text);
+
+                void Pick()
+                {
+                    if (!item.enabledInHierarchy || GetRadioSelected(group) == index)
+                    {
+                        return;
+                    }
+
+                    SetRadioSelected(group, index);
+                    if (changed != null)
+                    {
+                        changed(index);
+                    }
+                }
+
+                item.AddManipulator(new Clickable(Pick));
+                item.RegisterCallback<KeyDownEvent>(evt =>
+                {
+                    if (evt.keyCode == KeyCode.Space || evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+                    {
+                        Pick();
+                        evt.StopPropagation();
+                    }
+                });
+                group.Add(item);
+            }
+
+            SetRadioSelected(group, selected);
+            return group;
+        }
+
+        /// <summary>Selects an entry of a radio list made by <see cref="RadioList"/> without calling its callback; -1 selects none.</summary>
+        public static void SetRadioSelected(VisualElement group, int index)
+        {
+            for (int i = 0; i < group.childCount; i++)
+            {
+                group[i].EnableInClassList(RadioSelectedClass, i == index);
+            }
+        }
+
+        /// <summary>The selected entry of a radio list, or -1.</summary>
+        public static int GetRadioSelected(VisualElement group)
+        {
+            for (int i = 0; i < group.childCount; i++)
+            {
+                if (group[i].ClassListContains(RadioSelectedClass))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         // ------------------------------------------------------------------ banner, hints, kpi, bars
@@ -795,7 +1066,8 @@ namespace Veneer
         private const float TabSlidePixels = 18f;
         private const float RevealMs = 160f;
         private const float RevealPixels = 4f;
-        private const float ChipPopPeak = 1.08f;
+        // A chip may span the whole row, so the pop when it turns on is a nudge (1.04) with no bounce on the way back.
+        private const float ChipPopPeak = 1.04f;
         private const float ChipPopUpMs = 90f;
         private const float ChipPopDownMs = 130f;
         private const float PillPulsePeak = 1.1f;
@@ -826,9 +1098,10 @@ namespace Veneer
             new EasingFunction(EasingMode.EaseOut), new EasingFunction(EasingMode.Ease), new EasingFunction(EasingMode.Ease),
         };
 
+        // The way back from the pop is a plain ease-out: an overshoot (ease-out-back) read as a bounce on a chip that spans the row.
         private static readonly List<EasingFunction> ChipDownEase = new List<EasingFunction>
         {
-            new EasingFunction(EasingMode.EaseOutBack), new EasingFunction(EasingMode.Ease), new EasingFunction(EasingMode.Ease),
+            new EasingFunction(EasingMode.EaseOut), new EasingFunction(EasingMode.Ease), new EasingFunction(EasingMode.Ease),
         };
 
         private static readonly StyleTranslate ZeroTranslate = new StyleTranslate(new Translate(0f, 0f));

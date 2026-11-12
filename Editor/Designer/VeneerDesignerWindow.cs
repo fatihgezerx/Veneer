@@ -20,7 +20,6 @@ namespace Veneer
     public sealed partial class VeneerDesignerWindow : VeneerWindow
     {
         private const string MenuPath = "Tools/Veneer/Inspector Designer";
-        private const string LayoutFolder = "Assets/Veneer Layouts";
         private const string SheetRelativePath = "/Designer/Designer.uss";
         private const long SaveDelayMs = 500;
 
@@ -34,7 +33,10 @@ namespace Veneer
             Block = 3,
             Entry = 4,
             HiddenHeader = 5,
-            HiddenItem = 6
+            HiddenItem = 6,
+
+            // A list of a class that is in no card (selected in the Fields pane): only its item design is shown. Not a tree row.
+            OtherList = 7
         }
 
         // One row of the flat layout tree. Unused indices are 0; HiddenItem keeps its index into HiddenPaths in Entry.
@@ -367,7 +369,7 @@ namespace Veneer
             createPanel.Add(createOwnHint);
             VisualElement chip = VeneerStyle.Chip("Place all fields in a first card", "check", placeAllOnCreate, on => placeAllOnCreate = on, Brand);
             createPanel.Add(chip);
-            Button create = VeneerStyle.Button("Create layout", "plus-circle", "Creates the layout asset in Assets/Veneer Layouts.", CreateLayoutForScript, true, Brand);
+            Button create = VeneerStyle.Button("Create layout", "plus-circle", "Creates the layout asset in the Veneer folder's Data/Layouts.", CreateLayoutForScript, true, Brand);
             create.style.marginTop = 8f;
             createButtonLabel = create.Q<Label>(className: "vn-button__label");
             createPanel.Add(create);
@@ -382,12 +384,7 @@ namespace Veneer
                 return;
             }
 
-            if (!AssetDatabase.IsValidFolder(LayoutFolder))
-            {
-                AssetDatabase.CreateFolder("Assets", "Veneer Layouts");
-            }
-
-            string path = AssetDatabase.GenerateUniqueAssetPath(LayoutFolder + "/" + targetType.Name + " Layout.asset");
+            string path = AssetDatabase.GenerateUniqueAssetPath(VeneerDataFolders.EnsureLayouts() + "/" + targetType.Name + " Layout.asset");
             var created = CreateInstance<VeneerLayout>();
             created.Bind(script);
             var page = new VeneerLayoutPage { Title = "General" };
@@ -420,12 +417,7 @@ namespace Veneer
                 return;
             }
 
-            if (!AssetDatabase.IsValidFolder(LayoutFolder))
-            {
-                AssetDatabase.CreateFolder("Assets", "Veneer Layouts");
-            }
-
-            string path = AssetDatabase.GenerateUniqueAssetPath(LayoutFolder + "/" + targetType.Name + " Layout.asset");
+            string path = AssetDatabase.GenerateUniqueAssetPath(VeneerDataFolders.EnsureLayouts() + "/" + targetType.Name + " Layout.asset");
             VeneerLayout copy = Instantiate(layout);
             copy.hideFlags = HideFlags.None;
             copy.name = System.IO.Path.GetFileNameWithoutExtension(path);
@@ -705,6 +697,10 @@ namespace Veneer
                 case NodeKind.Header:
                 case NodeKind.HiddenHeader:
                     valid = true;
+                    break;
+                case NodeKind.OtherList:
+                    // The path is not saved with the window: after a domain reload the selection falls back to the header.
+                    valid = IsDesignableList(selFieldPath);
                     break;
                 default:
                     // Includes the retired Banner value (1) from older saved windows.

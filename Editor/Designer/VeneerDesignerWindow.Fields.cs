@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -24,6 +25,16 @@ namespace Veneer
             // A nested struct with at least one listed child (it gets the expand arrow); Expanded is the arrow's state.
             public bool IsStruct;
             public bool Expanded;
+
+            // An informational row of a field inside the elements of a list of a class (Path reads groups[].header). It is designed in the
+            // Item design card, never dragged, hidden or placed. ListPath is the list's path without indices, RelPath the field's path
+            // relative to the element. HasInfoChildren: this list (or struct) shows the fields of its elements below it.
+            public bool Info;
+            public string ListPath;
+            public string RelPath;
+            public bool HasInfoChildren;
+
+            public bool Expandable => IsStruct || HasInfoChildren;
 
             // Filled by UpdateFieldMarks: where this very path sits, and what it inherits from its ancestors.
             public string OwnCard;
@@ -188,6 +199,7 @@ namespace Veneer
             try
             {
                 tempSo = new SerializedObject(tempObject);
+                SeedSamples();
                 CollectFields();
                 ownEditorName = FindOwnEditorName(tempObject);
             }
@@ -232,6 +244,14 @@ namespace Veneer
             fieldPaths.Add(path);
             fieldNames[path] = item.Display;
 
+            // A list of a class shows the fields of its (sample) element as informational rows.
+            if (depth < MaxFieldDepth && IsDesignableProperty(property) && property.arraySize > 0)
+            {
+                AddInfoChildren(property.GetArrayElementAtIndex(0), VeneerItemPaths.Normalize(path), path + "[]", string.Empty, depth, index);
+                item.HasInfoChildren = fields.Count > index + 1;
+                return;
+            }
+
             if (depth >= MaxFieldDepth || !IsNestedStructProperty(property))
             {
                 return;
@@ -251,6 +271,250 @@ namespace Veneer
                 item.IsStruct = true;
                 item.TypeLabel = "struct";
             }
+        }
+
+        // Adds the fields of <container> (the sample element of a list, or a struct inside it) as informational rows below the parent row.
+        private void AddInfoChildren(SerializedProperty container, string listPath, string infoPrefix, string relPrefix, int depth, int parentIndex)
+        {
+            SerializedProperty child = container.Copy();
+            SerializedProperty end = container.GetEndProperty();
+            bool enterChildren = true;
+            while (child.NextVisible(enterChildren) && !SerializedProperty.EqualContents(child, end))
+            {
+                enterChildren = false;
+                string infoPath = infoPrefix + "." + child.name;
+                string relative = string.IsNullOrEmpty(relPrefix) ? child.name : relPrefix + "." + child.name;
+                int index = fields.Count;
+                var info = new FieldItem
+                {
+                    Path = infoPath,
+                    Display = child.displayName,
+                    TypeLabel = child.isArray && child.propertyType != SerializedPropertyType.String ? "list" : child.propertyType.ToString(),
+                    Depth = depth + 1,
+                    Parent = parentIndex,
+                    Expanded = expandedPaths.Contains(infoPath),
+                    Info = true,
+                    ListPath = listPath,
+                    RelPath = relative,
+                };
+                fields.Add(info);
+                if (info.Depth >= MaxFieldDepth)
+                {
+                    continue;
+                }
+
+                if (IsDesignableProperty(child) && child.arraySize > 0)
+                {
+                    AddInfoChildren(child.GetArrayElementAtIndex(0), VeneerItemPaths.Normalize(child.propertyPath), infoPath + "[]", string.Empty, info.Depth, index);
+                }
+                else if (IsNestedStructProperty(child))
+                {
+                    AddInfoChildren(child, listPath, infoPath, relative, info.Depth, index);
+                }
+
+                info.HasInfoChildren = fields.Count > index + 1;
+                if (info.HasInfoChildren)
+                {
+                    info.TypeLabel = child.isArray ? "list" : "struct";
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ sample data
+
+        // A list of a [Serializable] class is empty on a fresh instance, so the preview would show no rows and nothing of the class inside.
+        // The temporary instance (never saved, never the user's data) gets one sample element in every such list, also inside the element
+        // (a group's pool list), so the preview shows the real shape. Edits made in the preview stay until the script or layout is reloaded.
+        private const int SampleDepth = 3;
+        private const string SampleAssetKey = "Veneer.Designer.SampleAsset";
+
+        private ObjectField sampleField;
+
+        private void SeedSamples()
+        {
+            var roots = new List<string>(8);
+            SerializedProperty iterator = tempSo.GetIterator();
+            bool enter = true;
+            while (iterator.NextVisible(enter))
+            {
+                enter = false;
+                if (iterator.propertyPath != "m_Script")
+                {
+                    roots.Add(iterator.propertyPath);
+                }
+            }
+
+            for (int i = 0; i < roots.Count; i++)
+            {
+                SeedPath(roots[i], 0);
+            }
+
+            tempSo.ApplyModifiedPropertiesWithoutUndo();
+            FillSampleObjects(LoadSampleAsset());
+        }
+
+        // Works by path, never by a live iterator: inserting an element invalidates the iterators of that object.
+        private void SeedPath(string path, int depth)
+        {
+            SerializedProperty property = tempSo.FindProperty(path);
+            if (property == null)
+            {
+                return;
+            }
+
+            if (property.isArray && property.propertyType != SerializedPropertyType.String)
+            {
+                if (depth >= SampleDepth)
+                {
+                    return;
+                }
+
+                // Only a list of a plain [Serializable] class or struct gets a sample element; a list of numbers, texts or objects stays empty.
+                if (!IsSampleElementType(VeneerFieldInfo.GetElementType(property)))
+                {
+                    return;
+                }
+
+                if (property.arraySize == 0)
+                {
+                    property.InsertArrayElementAtIndex(0);
+                    tempSo.ApplyModifiedPropertiesWithoutUndo();
+                    tempSo.Update();
+                    property = tempSo.FindProperty(path);
+                }
+
+                SerializedProperty first = property.arraySize > 0 ? property.GetArrayElementAtIndex(0) : null;
+                if (first != null && IsNestedStructProperty(first))
+                {
+                    SeedChildren(first.propertyPath, depth + 1);
+                }
+
+                return;
+            }
+
+            if (IsNestedStructProperty(property))
+            {
+                SeedChildren(path, depth);
+            }
+        }
+
+        private void SeedChildren(string parentPath, int depth)
+        {
+            SerializedProperty parent = tempSo.FindProperty(parentPath);
+            if (parent == null)
+            {
+                return;
+            }
+
+            var children = new List<string>(8);
+            SerializedProperty child = parent.Copy();
+            SerializedProperty end = parent.GetEndProperty();
+            bool enterChildren = true;
+            while (child.NextVisible(enterChildren) && !SerializedProperty.EqualContents(child, end))
+            {
+                enterChildren = false;
+                children.Add(child.propertyPath);
+            }
+
+            for (int i = 0; i < children.Count; i++)
+            {
+                SeedPath(children[i], depth);
+            }
+        }
+
+        // A class or struct Unity serializes field by field: not a built-in type (Vector3, Color, AnimationCurve...), a string, a number, an
+        // enum, an object reference or a UnityEvent.
+        private static bool IsSampleElementType(Type type)
+        {
+            if (type == null || type.IsPrimitive || type.IsEnum || type == typeof(string) || !Attribute.IsDefined(type, typeof(SerializableAttribute), false))
+            {
+                return false;
+            }
+
+            string space = type.Namespace;
+            bool builtIn = space != null && (space.StartsWith("UnityEngine", StringComparison.Ordinal) || space.StartsWith("System", StringComparison.Ordinal));
+            return !builtIn && !typeof(UnityEngine.Object).IsAssignableFrom(type) && !typeof(UnityEngine.Events.UnityEventBase).IsAssignableFrom(type);
+        }
+
+        // The sample picture is kept as a global id (not a path) so a sprite inside a texture comes back as that sprite.
+        private static UnityEngine.Object LoadSampleAsset()
+        {
+            string text = SessionState.GetString(SampleAssetKey, string.Empty);
+            return !string.IsNullOrEmpty(text) && GlobalObjectId.TryParse(text, out GlobalObjectId id)
+                ? GlobalObjectId.GlobalObjectIdentifierToObjectSlow(id)
+                : null;
+        }
+
+        // Puts the sample picture (a prefab, sprite, material...) into every empty object slot of the sample data it fits, so the preview
+        // shows thumbnails without dragging an object into each row. A slot the user filled in the preview is left alone. A sprite also
+        // fits a texture slot, and a texture fits a sprite slot (its first sprite).
+        private void FillSampleObjects(UnityEngine.Object asset)
+        {
+            if (tempSo == null || asset == null)
+            {
+                return;
+            }
+
+            Sprite spriteOfTexture = null;
+            bool spriteLooked = false;
+            tempSo.Update();
+            SerializedProperty iterator = tempSo.GetIterator();
+            bool changed = false;
+            while (iterator.Next(true))
+            {
+                if (iterator.propertyType != SerializedPropertyType.ObjectReference || iterator.objectReferenceValue != null)
+                {
+                    continue;
+                }
+
+                Type slotType = VeneerFieldInfo.GetValueType(iterator);
+                if (slotType == null)
+                {
+                    continue;
+                }
+
+                UnityEngine.Object fit = null;
+                if (slotType.IsInstanceOfType(asset))
+                {
+                    fit = asset;
+                }
+                else if (asset is Sprite sprite && slotType.IsInstanceOfType(sprite.texture))
+                {
+                    fit = sprite.texture;
+                }
+                else if (asset is Texture2D && slotType == typeof(Sprite))
+                {
+                    if (!spriteLooked)
+                    {
+                        spriteLooked = true;
+                        UnityEngine.Object[] all = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(asset));
+                        for (int i = 0; i < all.Length && spriteOfTexture == null; i++)
+                        {
+                            spriteOfTexture = all[i] as Sprite;
+                        }
+                    }
+
+                    fit = spriteOfTexture;
+                }
+
+                if (fit != null)
+                {
+                    iterator.objectReferenceValue = fit;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                tempSo.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        private void OnSampleAssetChanged(UnityEngine.Object asset)
+        {
+            SessionState.SetString(SampleAssetKey, asset != null ? GlobalObjectId.GetGlobalObjectIdSlow(asset).ToString() : string.Empty);
+            FillSampleObjects(asset);
+            SchedulePreview();
         }
 
         // The same test as VeneerAutoInspector.IsNestedStruct: a plain [Serializable] class or struct, not a list, UnityEvent, object or managed reference.
@@ -342,7 +606,7 @@ namespace Veneer
                 return false;
             }
 
-            return fieldPaths.Contains(path) || (tempSo != null && tempSo.FindProperty(path) != null);
+            return fieldPaths.Contains(path) || (tempSo != null && tempSo.FindProperty(path) != null) || IsInsideDesignedItem(path);
         }
 
         // The registered custom items of the type (empty without any); read after the lookup of the system's default layout registered them.
@@ -450,6 +714,18 @@ namespace Veneer
             VeneerStyle.SetDisplay(itemsBox, false);
             pane.Add(itemsBox);
 
+            // The temporary instance is filled with one sample element per list; this picture goes into its empty object slots.
+            pane.Add(VeneerStyle.Section("Sample picture"));
+            sampleField = new ObjectField
+            {
+                objectType = typeof(UnityEngine.Object),
+                allowSceneObjects = false,
+                tooltip = "A prefab, sprite or any asset shown in the empty object slots of the preview's sample data, so thumbnails can be judged. It is never saved into your data.",
+            };
+            sampleField.SetValueWithoutNotify(LoadSampleAsset());
+            sampleField.RegisterValueChangedCallback(evt => OnSampleAssetChanged(evt.newValue));
+            pane.Add(sampleField);
+
             placeAllButton = VeneerStyle.Button(
                 "Place all unplaced",
                 "plus-circle",
@@ -537,7 +813,7 @@ namespace Veneer
                     }
 
                     // Hidden (not removed) for a leaf, so the names of siblings line up.
-                    row.Arrow.visible = item.IsStruct;
+                    row.Arrow.visible = item.Expandable;
                 }
                 else
                 {
@@ -600,7 +876,7 @@ namespace Veneer
                     shown++;
                 }
 
-                if (item.IsStruct)
+                if (item.Expandable)
                 {
                     string arrowIcon = filtering || item.Expanded ? "chevron-down" : "chevron-right";
                     if (!string.Equals(row.ArrowIconName, arrowIcon, StringComparison.Ordinal))
@@ -617,7 +893,7 @@ namespace Veneer
 
         private void ToggleExpanded(int index)
         {
-            if (index < 0 || index >= fields.Count || !fields[index].IsStruct)
+            if (index < 0 || index >= fields.Count || !fields[index].Expandable)
             {
                 return;
             }
@@ -736,7 +1012,8 @@ namespace Veneer
                     item.LeafResolved = item.OwnCard != null || item.OwnHidden || item.InheritedCard != null || item.InheritedHidden ? 1 : 0;
                 }
 
-                if (item.Parent >= 0)
+                // An informational row of a list item is not a field of the script's own layout: it never counts toward its parent.
+                if (item.Parent >= 0 && !item.Info)
                 {
                     fields[item.Parent].LeafTotal += item.LeafTotal;
                     fields[item.Parent].LeafResolved += item.LeafResolved;
@@ -750,7 +1027,11 @@ namespace Veneer
                 string iconName = "eye-off";
                 string markClass;
                 string text;
-                if (item.OwnCard != null)
+                if (item.Info)
+                {
+                    InfoMark(item, out markClass, out text);
+                }
+                else if (item.OwnCard != null)
                 {
                     markClass = MarkPlaced;
                     text = item.OwnCard;
@@ -792,6 +1073,7 @@ namespace Veneer
 
                 // A field that is part of a placed or hidden struct follows that struct: change the struct instead.
                 row.Hide.SetEnabled(editable && item.InheritedCard == null && !item.InheritedHidden);
+                VeneerStyle.SetDisplay(row.Hide, !item.Info);
             }
 
             UpdateItemMarks();
@@ -812,8 +1094,8 @@ namespace Veneer
             }
 
             FieldItem item = fields[row.Index];
-            // A field inside a placed (or hidden) struct is already handled by its struct.
-            if (item.InheritedCard != null || item.InheritedHidden)
+            // An informational row is designed in the Item design card; a field inside a placed (or hidden) struct is already handled by its struct.
+            if (item.Info || item.InheritedCard != null || item.InheritedHidden)
             {
                 return;
             }
@@ -836,9 +1118,24 @@ namespace Veneer
 
             var element = (VisualElement)evt.currentTarget;
             var row = (FieldRow)element.userData;
-            if (row.Index < fields.Count)
+            if (row.Index >= fields.Count)
             {
-                SelectEntryByPath(fields[row.Index].Path);
+                return;
+            }
+
+            FieldItem item = fields[row.Index];
+            if (item.Info)
+            {
+                SelectItemField(row.Index);
+            }
+            else if (IsDesignableList(item.Path) && (layout == null || layout.FindEntry(item.Path, out _, out _) == null))
+            {
+                // A list that is in no card of its own (unplaced, hidden, or inside a placed struct): its item design can still be edited.
+                SelectFieldList(item.Path);
+            }
+            else
+            {
+                SelectEntryByPath(item.Path);
             }
         }
 
@@ -1275,7 +1572,7 @@ namespace Veneer
                 }
             }
 
-            return count;
+            return count + CountStaleItems();
         }
 
         private void AppendStaleNames(StringBuilder builder)
@@ -1298,6 +1595,8 @@ namespace Veneer
                     }
                 }
             }
+
+            AppendStaleItemNames(builder, ref added);
         }
 
         private void RemoveStale()
@@ -1325,6 +1624,7 @@ namespace Veneer
                 }
             }
 
+            RemoveStaleItems();
             LayoutEdited();
         }
     }

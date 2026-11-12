@@ -84,9 +84,20 @@ namespace Veneer
                     propsTitle.text = "HIDDEN";
                     propsBody.Add(VeneerStyle.Hint("Hidden fields are not drawn at all, not even in the automatic Other section. Drag a field here to hide it, or use the eye button of a row.", "info", Brand));
                     break;
+                case NodeKind.OtherList:
+                    propsTitle.text = "LIST";
+                    propsBody.Add(VeneerStyle.Hint(
+                        "This list is not in a card, so it is drawn in the automatic Other card. Its items can be designed here all the same.", "info", Brand));
+                    BuildItemDesign(selFieldPath);
+                    break;
                 default:
                     propsTitle.text = "HIDDEN FIELD";
                     propsBody.Add(VeneerStyle.Hint("This field is hidden. Press its eye button (or Delete) to show it again, or drag it into a card.", "info", Brand));
+                    if (selEntry >= 0 && selEntry < layout.HiddenPaths.Count && IsDesignableList(layout.HiddenPaths[selEntry]))
+                    {
+                        BuildItemDesign(layout.HiddenPaths[selEntry]);
+                    }
+
                     break;
             }
 
@@ -370,18 +381,36 @@ namespace Veneer
             pathLabel.AddToClassList("vn-ellipsis");
             pathLabel.tooltip = pathLabel.text;
             card.Add(pathLabel);
+            SerializedProperty fieldProperty = tempSo != null ? tempSo.FindProperty(path) : null;
+            AddEntryControls(card, prefix, entry, fieldProperty, false);
+            propsBody.Add(card);
+
+            VisualElement rule = VeneerStyle.Card("Show only when", "filter", Brand);
+            BuildShowIf(rule, prefix, path, entry.ShowIfPath, entry.ShowIf, null);
+            propsBody.Add(rule);
+
+            // A list of a class also gets the design of its items.
+            if (IsDesignableProperty(fieldProperty))
+            {
+                BuildItemDesign(path);
+            }
+        }
+
+        // The controls of one entry: label, tooltip, unit, widget and its extras, size, same row, read only. Shared by a field of a card and a
+        // field of a designed list item (<itemScope>: the field sits in an element, where every widget may share a line and hide its label).
+        private void AddEntryControls(VisualElement card, string prefix, VeneerLayoutEntry entry, SerializedProperty fieldProperty, bool itemScope)
+        {
             card.Add(TextRow("Label", prefix + "Label", "Replaces the field's own name. Empty keeps the default."));
             card.Add(TextRow("Tooltip", prefix + "Tooltip", "Replaces the field's own tooltip. Empty keeps the default."));
             card.Add(TextRow("Unit", prefix + "Unit", "Written next to a number, for example m or hp."));
 
             // The widget popup is built from the enum (so every member, Tag included, is listed); Tag reads "Tag dropdown".
             // (EnumField has no item formatter, so this is a dropdown over the enum's members; written like the show-if dropdowns.)
-            var widgetField = new DropdownField(new List<string>(WidgetNames), Mathf.Clamp((int)entry.Widget, 0, WidgetNames.Length - 1));
+            var widgetField = (VeneerDropdownField)VeneerDropdown.Create(WidgetNames, Mathf.Clamp((int)entry.Widget, 0, WidgetNames.Length - 1), null, Brand);
             widgetField.AddToClassList("vnd-control--capped");
             card.Add(VeneerStyle.FieldRow("Widget", widgetField, "How the field is drawn. Auto picks from the field's type and attributes.", out _));
 
             // Widget-specific texts: slider end captions and enum button icons. Shown by the widget (Auto: by the field's own type).
-            SerializedProperty fieldProperty = tempSo != null ? tempSo.FindProperty(path) : null;
             bool autoNumber = fieldProperty == null
                 || fieldProperty.propertyType == SerializedPropertyType.Float
                 || fieldProperty.propertyType == SerializedPropertyType.Integer;
@@ -422,24 +451,38 @@ namespace Veneer
             card.Add(iconsRow);
             card.Add(chipIconRow);
             card.Add(sameRow);
+
+            // The size of the item, and (for an object reference) of its small picture. 0 keeps the automatic size.
+            card.Add(FloatRow("Width", prefix + "Width", SizeTip("Width of the whole item in pixels")));
+            card.Add(FloatRow("Height", prefix + "Height", SizeTip("Height of the whole item in pixels")));
+            bool objectReference = fieldProperty != null && fieldProperty.propertyType == SerializedPropertyType.ObjectReference;
+            VisualElement pictureWidthRow = FloatRow("Picture width", prefix + "PictureWidth", SizeTip("Width of the picture (the preview of the prefab, sprite, material...) in pixels"));
+            VisualElement pictureHeightRow = FloatRow("Picture height", prefix + "PictureHeight", SizeTip("Height of the picture in pixels"));
+            card.Add(pictureWidthRow);
+            card.Add(pictureHeightRow);
             Action<VeneerWidget> widgetRows = widget =>
             {
                 bool slider = widget == VeneerWidget.Slider || widget == VeneerWidget.MinMax || (widget == VeneerWidget.Auto && autoNumber);
                 rangeApplies = widget == VeneerWidget.Slider || widget == VeneerWidget.Number || widget == VeneerWidget.MinMax
                     || (widget == VeneerWidget.Auto && (autoNumber || autoVector2));
                 rangeRows();
-                bool enumButtons = widget == VeneerWidget.Enum || (widget == VeneerWidget.Auto && autoEnum);
+                // Segmented buttons and the radio list both take an icon per member.
+                bool enumButtons = widget == VeneerWidget.Enum || widget == VeneerWidget.Radio || (widget == VeneerWidget.Auto && autoEnum);
                 VeneerStyle.SetDisplay(leftRow, slider);
                 VeneerStyle.SetDisplay(rightRow, slider);
                 VeneerStyle.SetDisplay(iconsRow, enumButtons);
+                // Only the chip carries an icon; any bool look may share a row.
                 bool chip = widget == VeneerWidget.Toggle || (widget == VeneerWidget.Auto && autoBool);
+                bool anyBool = chip || widget == VeneerWidget.Switch || widget == VeneerWidget.Checkbox;
                 VeneerStyle.SetDisplay(chipIconRow, chip);
-                VeneerStyle.SetDisplay(sameRow, chip);
+                VeneerStyle.SetDisplay(sameRow, anyBool || itemScope);
+                bool picture = objectReference && (widget == VeneerWidget.Auto || widget == VeneerWidget.Object);
+                VeneerStyle.SetDisplay(pictureWidthRow, picture);
+                VeneerStyle.SetDisplay(pictureHeightRow, picture);
             };
             widgetRows(entry.Widget);
-            widgetField.RegisterValueChangedCallback(evt =>
+            widgetField.Changed += selected =>
             {
-                int selected = widgetField.index;
                 if (selected < 0)
                 {
                     return;
@@ -453,14 +496,10 @@ namespace Veneer
                 }
 
                 widgetRows((VeneerWidget)selected);
-            });
+            };
 
             card.Add(ToggleRow("Read only", prefix + "ReadOnly", "Shown but cannot be edited."));
-            propsBody.Add(card);
-
-            VisualElement rule = VeneerStyle.Card("Show only when", "filter", Brand);
-            BuildShowIf(rule, prefix, path, entry.ShowIfPath, entry.ShowIf);
-            propsBody.Add(rule);
+            card.Add(ToggleRow("Hide the label", prefix + "HideLabel", "Draws the control without its label column (for fields that share a line)."));
         }
 
         // A system item: its label (an override), its description (read-only), and the same "Show only when" rule as a field.
@@ -542,14 +581,30 @@ namespace Veneer
             propsBody.Add(rule);
         }
 
-        private void BuildShowIf(VisualElement parent, string prefix, string ownPath, string currentPath, VeneerCondition currentCondition)
+        // <sourcePaths> replaces the script's own fields as the choices of the watched field (the sibling fields of a list item, relative paths).
+        private void BuildShowIf(
+            VisualElement parent, string prefix, string ownPath, string currentPath, VeneerCondition currentCondition, IReadOnlyList<string> sourcePaths = null)
         {
             string current = currentPath ?? string.Empty;
             var choices = new List<string>(fields.Count + 2) { NoShowIf };
             bool found = current.Length == 0;
-            for (int i = 0; i < fields.Count; i++)
+            if (sourcePaths != null)
             {
-                if (fields[i].Path == ownPath || fields[i].IsStruct)
+                for (int i = 0; i < sourcePaths.Count; i++)
+                {
+                    if (sourcePaths[i] == ownPath)
+                    {
+                        continue;
+                    }
+
+                    choices.Add(sourcePaths[i]);
+                    found |= sourcePaths[i] == current;
+                }
+            }
+
+            for (int i = 0; sourcePaths == null && i < fields.Count; i++)
+            {
+                if (fields[i].Path == ownPath || fields[i].IsStruct || fields[i].Info)
                 {
                     continue;
                 }
@@ -564,14 +619,14 @@ namespace Veneer
             }
 
             int index = current.Length == 0 ? 0 : choices.IndexOf(current);
-            var dropdown = new DropdownField(choices, index);
+            var dropdown = (VeneerDropdownField)VeneerDropdown.Create(choices, index, null, Brand);
             dropdown.AddToClassList("vnd-control--capped");
             VisualElement conditionBox = new VisualElement();
             parent.Add(VeneerStyle.FieldRow("Field", dropdown, "The field whose value decides whether this one is shown.", out _));
             parent.Add(conditionBox);
 
             // Readable names in the enum's own order (IsNull = "is not assigned", NotNull = "is assigned").
-            var conditionDropdown = new DropdownField(new List<string>(ConditionNames), Mathf.Clamp((int)currentCondition, 0, ConditionNames.Length - 1));
+            var conditionDropdown = (VeneerDropdownField)VeneerDropdown.Create(ConditionNames, Mathf.Clamp((int)currentCondition, 0, ConditionNames.Length - 1), null, Brand);
             conditionDropdown.AddToClassList("vnd-control--capped");
             conditionBox.Add(VeneerStyle.FieldRow("Condition", conditionDropdown, "The test applied to that field.", out _));
             VisualElement valueRow = TextRow("Value", prefix + "ShowIfValue", "What to compare with (a number, text, or an enum's name).");
@@ -579,7 +634,7 @@ namespace Veneer
             VeneerStyle.SetDisplay(conditionBox, current.Length > 0);
             VeneerStyle.SetDisplay(valueRow, current.Length > 0 && NeedsValue(currentCondition));
 
-            dropdown.RegisterValueChangedCallback(evt =>
+            dropdown.Changed += picked =>
             {
                 SerializedProperty property = layoutSo.FindProperty(prefix + "ShowIfPath");
                 if (property == null)
@@ -587,17 +642,16 @@ namespace Veneer
                     return;
                 }
 
-                bool none = dropdown.index <= 0;
-                property.stringValue = none ? string.Empty : evt.newValue;
+                bool none = picked <= 0;
+                property.stringValue = none ? string.Empty : choices[picked];
                 layoutSo.ApplyModifiedProperties();
                 VeneerStyle.SetDisplay(conditionBox, !none);
                 SerializedProperty condition = layoutSo.FindProperty(prefix + "ShowIf");
                 VeneerStyle.SetDisplay(valueRow, !none && condition != null && NeedsValue((VeneerCondition)condition.enumValueIndex));
-            });
+            };
 
-            conditionDropdown.RegisterValueChangedCallback(evt =>
+            conditionDropdown.Changed += selected =>
             {
-                int selected = conditionDropdown.index;
                 if (selected < 0)
                 {
                     return;
@@ -611,8 +665,13 @@ namespace Veneer
                 }
 
                 // Conditions that need no value (is true / false / assigned / not assigned / empty / not empty) hide the value box.
-                VeneerStyle.SetDisplay(valueRow, dropdown.index > 0 && NeedsValue((VeneerCondition)selected));
-            });
+                VeneerStyle.SetDisplay(valueRow, dropdown.Value > 0 && NeedsValue((VeneerCondition)selected));
+            };
+        }
+
+        private static string SizeTip(string what)
+        {
+            return what + ". 0 keeps the automatic size.";
         }
 
         private static readonly string[] ConditionNames =
@@ -672,9 +731,13 @@ namespace Veneer
             return toggle;
         }
 
+        // A bool of the layout as the kit's sliding switch (the settings look); a missing property falls back to a plain toggle.
         private VisualElement ToggleRow(string label, string path, string tooltip)
         {
-            return VeneerStyle.FieldRow(label, MakeToggle(path), tooltip, out _);
+            SerializedProperty property = layoutSo.FindProperty(path);
+            return property != null
+                ? VeneerControls.ToggleSwitch(property, label, Brand, tooltip)
+                : VeneerStyle.FieldRow(label, MakeToggle(path), tooltip, out _);
         }
 
         private VisualElement FloatRow(string label, string path, string tooltip)
@@ -685,11 +748,19 @@ namespace Veneer
             return VeneerStyle.FieldRow(label, field, tooltip, out _);
         }
 
+        // The kit's animated dropdown over the layout's enum property (its display names), kept in step with the property.
         private VisualElement EnumRow(string label, string path, Enum defaultValue, string tooltip)
         {
-            var field = new EnumField(defaultValue);
+            SerializedProperty property = layoutSo.FindProperty(path);
+            if (property == null)
+            {
+                var fallback = new EnumField(defaultValue);
+                fallback.AddToClassList("vnd-control--capped");
+                return VeneerStyle.FieldRow(label, fallback, tooltip, out _);
+            }
+
+            VeneerDropdownField field = VeneerControls.EnumDropdownField(property, Brand);
             field.AddToClassList("vnd-control--capped");
-            Bind(field, path);
             return VeneerStyle.FieldRow(label, field, tooltip, out _);
         }
 

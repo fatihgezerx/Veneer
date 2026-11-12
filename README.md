@@ -25,7 +25,7 @@ Veneer/
     ThemeEditor/ VeneerThemeEditorWindow*.cs  VeneerThemeSample.cs  ThemeEditor.uss
     Graph/      VeneerGraph.cs  (VeneerSeries, VeneerPalette, VeneerGraph, VeneerSparkline, VeneerNumberText)
     Styles/     Veneer.uss
-    Icons/      104 white 64x64 glyphs (lowercase-kebab names)
+    Icons/      105 white 64x64 glyphs (lowercase-kebab names)
 ```
 
 ## Using the kit from a system
@@ -139,7 +139,7 @@ internal sealed class MyWindow : VeneerWindow
 its code. Drop a script on the window, add tabs and cards, drag the script's fields into them, then set an icon for the script, a banner image across
 the top (its height or width is yours; *Preserve aspect* keeps the picture's ratio like the Image component), an accent colour, and for every field a label,
 tooltip, unit, widget, read-only and a *show only when* rule. A live preview shows the real Inspector. The result is a `VeneerLayout` asset (default folder
-`Assets/Veneer Layouts/`, saved automatically); delete it and the default Inspector is back. The script and its variables are never changed.
+`Data/Layouts/` in the Veneer folder, saved automatically); delete it and the default Inspector is back. The script and its variables are never changed.
 
 - **Nothing is lost.** Fields you do not place appear in an automatic *Other* card at the end (a field added to the script later shows up there by itself) unless you
   hid them on purpose (the Hidden list).
@@ -185,7 +185,7 @@ the system's editor itself derives from `VeneerLayoutDrivenInspector<T>`: it dra
 
 - **Default layout in code.** A system adds a class implementing `IVeneerDefaultLayoutProvider` (`TargetType`, `CreateLayout()` written with the fluent `VeneerLayoutBuilder`: `Page`, `Card`, `Field`, `Slider`, `Enum`, `Note`, `Custom`, `ShowIf`, `ReadOnly`,
   and `RegisterItems()`). `VeneerDefaultLayouts.TryGet(type, out layout)` finds it (providers are discovered with `TypeCache`). The default is an in-memory layout, never an asset.
-- **Customize / Reset.** The Designer opens the default read-only ("System design"); **Customize** makes the user's copy in `Assets/Veneer Layouts/` (`FromSystemDefault`), **Reset to system default** deletes it.
+- **Customize / Reset.** The Designer opens the default read-only ("System design"); **Customize** makes the user's copy in `Data/Layouts/` in the Veneer folder (`FromSystemDefault`), **Reset to system default** deletes it.
 - **System items** (`VeneerCustomItems.Register(type, new VeneerCustomItem { Id, Label, Icon, Description, Slot, Build })`) are the technical pieces that are not fields: a Compile button (`Slot = Footer`, drawn after the tabs), a state pill
   (`HeaderBadge`, at the right of the header), a group of computed hints (`Item`, drawn where the user puts it). The user can move or hide them, never change their inside. `VeneerCustomItems.RegisterWidget(type, propertyPath, build)` replaces the
   generic widget of one property (for example a custom list). The item context offers the `SerializedObject`, the `Targets`, the builder and `Poll(Action)` (the builder's 200 ms scheduler).
@@ -199,7 +199,13 @@ The kit moves a little, in a way that follows the theme (accent colour) and can 
 - **Buttons, icon buttons, chips and segmented buttons** highlight on hover and shrink slightly while pressed; they spring back on release or when the pointer leaves.
 - **Sliders:** a fill follows the value; the handle grows and takes the accent colour on hover and grows more, with a ring, while it is held.
 - **Tabs:** switching slides and fades the content: the open page fades out toward one side and the new page arrives from the other (left tab to right tab: out to the left, in from the right).
-- **Dropdowns:** `VeneerDropdown` (and `VeneerControls.EnumDropdown`, used for plain enum fields) opens downward with a springy, rubber-band stretch and a rotating chevron; keyboard and click-away close it. Unity's own popup menu cannot be animated, so the kit draws its own.
+- **Dropdowns:** `VeneerDropdown` (and `VeneerControls.EnumDropdown`, used for plain enum fields) opens like a balloon pulled towards the button and let go: it starts short and a few pixels up, drops into place and its height springs past its size before it settles (rubber band), while the items fade in one after the other and the chevron turns; keyboard and click-away close it. Unity's own popup menu cannot be animated, so the kit draws its own, and every system editor uses it (`VeneerDropdown.Create` for a list of texts, `VeneerDropdown.CreateEnum<TEnum>` for an enum value held in code, `VeneerControls.EnumDropdownField` for a bare bound field).
+- **Bool looks:** a bool has three looks, chosen per field (`VeneerWidget.Toggle` / `Switch` / `Checkbox`, in a layout or the Designer): the **chip** (a pill with an icon that lights up), the **switch** (a track whose knob slides to the right with a small overshoot, the settings look) and the **checkbox** (a box whose tick pops in; Unity's toggle in the kit's look). Several selected objects that differ show the chip faded, the knob in the middle, or a dash.
+- **Item design:** a list of a class is drawn by `VeneerItemList` when the layout has a `VeneerItemLayout` for its index-free path (`groups`, `groups.entries`; the Designer's "Item design" card makes it). The look is a card per element (handle, title field, count pill, fold, remove) or a flat row; the entry paths are relative to the element and use every entry option (several can share a line). A system can register `VeneerItemDecorators.Register(type, listPath, ctx => ...)` to add row classes (`vni-item--error|warn|ok`) or tooltips.
+- **Model preview:** `VeneerModelPreview` shows any model through an `IVeneerModelPreviewSource` (a `VeneerModelPreviewScene` subclass wraps `PreviewRenderUtility`): drag turns, middle button pans, the wheel zooms towards the pointer, overlay zoom buttons and named views (Full, Head...) the camera glides to. Keys: arrows turn, Shift+arrows pan, +/- zoom, Home resets. CSS classes `vn-mp`, `vn-mp__image|hint|host|bar|tools`.
+- **Timeline:** `VeneerTimeline` draws lanes of spans with draggable grips and a playhead. Drag a grip (default snap 0.01 s plus a 6 px magnet to other grips and the playhead; Shift snaps to frames, Ctrl/Cmd turns snapping off, Esc cancels). Click or drag the ruler or a lane to move the playhead. Keys: Left/Right nudge 0.01 s (Shift one frame, Ctrl 0.001 s), Up/Down/PageUp/PageDown pick a grip, Home/End the first or last. The bubble shows name, seconds and frame.
+- **Size and sample data (Designer):** every field has *Width* and *Height* (pixels; 0 keeps the automatic size; a width never goes past the card), and an object reference also has *Picture width* / *Picture height* for its small preview (the prefab, sprite or material; default 36). The Designer fills its temporary instance with one sample element in every list of a `[Serializable]` class (also inside the element, three levels deep), so the preview shows the real rows; the *Sample picture* slot in the Fields pane puts a prefab, sprite or texture into the empty object slots of that sample. Nothing of it is saved into your data.
+- **Enum looks:** an enum has three looks too (`VeneerWidget.Enum` / `Dropdown` / `Radio`): **segmented** buttons side by side (icons or text, 2-5 members), the animated **dropdown**, and the **radio list** (one line per member with a dot that fills, an optional icon and a tooltip per choice: for long names or when the choices need explaining).
 - **Reveal and feedback:** a card or note that appears through a show-if rule fades in; a chip pops when turned on; a pill pulses when its text changes; text fields glow in the accent colour when focused.
 - **Setting:** *Motion* in the Theme Editor (per system or global): Off, Subtle, Normal, Lively. It is applied as a root class (`vn-motion--off|subtle|lively`); animations written in code use `VeneerMotionKit.Scale(element)` (0 = none) so one switch calms all of them.
 
@@ -209,6 +215,7 @@ The kit moves a little, in a way that follows the theme (accent colour) and can 
    presentation changes. Account for every feature of the old editor.
 2. The front tab shows at most 6-8 controls (what people change most); the rest is one tab away. Wiring references and rarely changed
    defaults are `[HideInInspector]`. No foldouts: tabs and cards instead. Friendly labels, one-line tooltips, units next to numbers.
+   Field labels are shown in Title Case automatically (`VeneerText.TitleCase`), so write them in any case.
 3. UI Toolkit only (`CreateInspectorGUI`, `CreateGUI`, `SettingsProvider.activateHandler`); IMGUI only where UI Toolkit has no equivalent (Scene handles).
 4. Allocation-light, leak-free: schedulers and subscriptions are removed on detach; live strips refresh at 5 Hz or slower.
 5. Droppable: nothing in a system's Runtime references the kit; the Editor assembly is gated by `HAS_VENEER`.
@@ -240,8 +247,8 @@ Blocks: `Banner(brand, title, subtitle)`, `Hint(text, kind, out Label, brand)` /
 ### VeneerControls (static) - all take a `SerializedProperty`, copy it, work with multi-edit, prefab marks and Undo
 `NumberRow(property, label = null, unit = null)` (clamps to `[Min]`/`[Range]` on commit; float, double, int)
 `SliderRow(property, label = null, leftEnd = null, rightEnd = null, float low = NaN, float high = NaN, unit = null)` (range from `[Range]` when low/high are NaN)
-`ToggleChip(property, label = null, icon = null, brand = null)`, `FlagChips(property, string[] names = null, string[] icons = null, brand = null)`
-`EnumSegmented(property, string[] icons = null, string[] tooltips = null, string label = null, brand = null)`
+`ToggleChip(property, label = null, icon = null, brand = null)`, `ToggleSwitch(property, label = null, brand = null, tooltip = null)`, `ToggleCheckbox(property, label = null, brand = null, tooltip = null)`, `FlagChips(property, string[] names = null, string[] icons = null, brand = null)`
+`EnumSegmented(property, string[] icons = null, string[] tooltips = null, string label = null, brand = null)`, `EnumDropdown(property, label = null, brand = null)`, `EnumDropdownField(property, brand = null)` (the bare field), `EnumRadio(property, string[] icons = null, string[] tooltips = null, string label = null, brand = null)`
 `ObjectSlot(property, label = null, Type objectType = null, brand = null)`, `ListEditor(property, label = null, brand = null)` (binds itself; add/remove/reorder)
 `Vector3Row(property, label)` (also Vector2), `ColorRow`, `CurveRow`. Helpers in `VeneerBinding`: `Hook`, `Commit`, `ForEachTarget`, `CountTargets`.
 
@@ -256,7 +263,7 @@ Structure: `Brand(VeneerBrand)`, `Into(container)` (`using` scope), `Add(element
 `HeaderRight`, `StatePill(Func<(string text, string kind)>)`, `Tabs(params (string label, string icon)[])` / `Tabs(string sessionKey, ...)` returning page containers,
 `Card(title = null, icon = null)` / `Card(title, icon, Action content)`, `Section(title)`, `Row(wrap)`, `Space(height)`.
 Fields (by property path): `Field(path, label = null, keepDecorators = false)`, `Number(path, label, unit)`, `Slider(path, label, leftEnd, rightEnd, low, high, unit)`,
-`Chip(path, label, icon)`, `Chips(params (path, label, icon)[])`, `Flags(path, names, icons)`, `Enum(path, icons, tooltips, label)`, `Object(path, label, type)`,
+`Chip(path, label, icon)`, `Chips(params (path, label, icon)[])`, `Switch(path, label)`, `Checkbox(path, label)`, `Flags(path, names, icons)`, `Enum(path, icons, tooltips, label)`, `Dropdown(path, label)`, `Radio(path, icons, tooltips, label)`, `Object(path, label, type)`,
 `List(path, label)`, `Vector3(path, label)`, `Color(path, label)`, `Curve(path, label)`. A wrong path shows an error hint instead of failing.
 Messages: `Hint(text, kind)`, `ConditionalHint(Func<string> text, kind = "warn", bool poll = false)`, `Button(label, icon, action, tooltip, primary)`, `Live(Func<string>)` (Play Mode only).
 Rules: `VisibleWhen(element, path, object value, bool invert = false)` (bool / int / enum / string / float / null), `VisibleWhen(element, Func<bool>, bool poll = false)`.
@@ -276,12 +283,12 @@ Layout: `vn-grow`, `vn-spacer`, `vn-ellipsis`, `vn-wrap`, `vn-row` (+`--wrap`, `
 `vn-card` (+`--nested`; `__title`, `__title-label`), `vn-header__text`, `vn-preset` (+`--on`; `__title`, `__text`).
 Text: `vn-title`, `vn-subtitle`, `vn-label-muted`. Icons: `vn-icon` (+`--sm --lg --xl --text --accent --ok --idle --warn --error --special`).
 Widgets: `vn-pill` (+`--info --ok --idle --warn --error --special`), `vn-icon-button` (+`--on`), `vn-button` (+`--primary`, `__label`), `vn-segmented` (`__button`, `__button--selected`, `__label`),
-`vn-chip` (+`--on`, `__label`), `vn-tabs`, `vn-tab` (+`--selected`, `__label`), `vn-banner` (`__logo __text __title __subtitle`), `vn-kpi` (`__header __title __value`), `vn-bar` (+`--ok --warn --error --special`, `__fill`),
+`vn-chip` (+`--on`, `__label`), `vn-switch` (+`--on --mixed`; `__track`, `__knob`), `vn-check` (+`--on --mixed`; `__box`, `__mark`, `__dash`), `vn-radio` (`__item` +`--selected`, `__dot`, `__fill`, `__icon`, `__label`), `vn-tabs`, `vn-tab` (+`--selected`, `__label`), `vn-banner` (`__logo __text __title __subtitle`), `vn-kpi` (`__header __title __value`), `vn-bar` (+`--ok --warn --error --special`, `__fill`),
 `vn-hint` (+`--info --warn --error`, `__text`), `vn-live` (`__text`), `vn-list-row` (+`--alt`), `vn-list` (`__header __title __view __notice`), `vn-toolbar`, `vn-search`, `vn-empty` (`__title __text`),
 `vn-thumb`, `vn-graph`, `vn-window`, `vn-titlebar` (`__logo`), `vn-field--no-decorators`.
 
 ## Icons (`Editor/Icons`, 64x64 white glyphs, tinted by USS)
-anchor, arrow-down, arrow-left, arrow-right, arrow-up, bell, bolt, book, bookmark, bug, calendar, camera, center, check, check-circle, chevron-down, chevron-left, chevron-right, chevron-up,
+anchor, arrow-down, arrow-left, arrow-right, arrow-up, bell, bolt, book, bookmark, bow, bug, calendar, camera, center, check, check-circle, chevron-down, chevron-left, chevron-right, chevron-up,
 clock, close, code, collapse, copy, cube, cursor, database, dot, download, drag-handle, edit, error, expand, external-link, eye, eye-off, file, filter, fit, flag, folder, globe, graph, grid,
 hash, heart, help, image, info, key, layers, link, list, lock, mail, map, mask, minus, minus-circle, more, move, music, overlay, paste, pause, percent, play, play-circle, plus, plus-circle,
 preset, quality, record, redo, refresh, rotate, save, scale, search, settings, shield, sliders, sort, sound, speed, sphere, star, step, stop, sword, tag, target, text, trash, undo, unlink,

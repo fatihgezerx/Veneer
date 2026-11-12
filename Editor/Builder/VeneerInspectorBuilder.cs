@@ -291,7 +291,8 @@ namespace Veneer
                 return Add(VeneerControls.EnumDropdown(property, label, brand));
             }
 
-            var field = label == null ? new PropertyField(property) : new PropertyField(property, label);
+            // The label is given explicitly so it can be shown with a capital first letter on every word.
+            var field = new PropertyField(property, VeneerText.TitleCase(label ?? property.displayName));
             if (!keepDecorators)
             {
                 field.AddToClassList("vn-field--no-decorators");
@@ -374,6 +375,46 @@ namespace Veneer
             }
 
             return Add(VeneerControls.EnumDropdown(property, label, brand));
+        }
+
+        /// <summary>Adds a sliding on/off switch row for a bool; see <see cref="VeneerControls.ToggleSwitch"/>.</summary>
+        public VisualElement Switch(string path, string label = null)
+        {
+            SerializedProperty property = Find(path, out VisualElement problem);
+            return property == null ? problem : Add(VeneerControls.ToggleSwitch(property, label, brand));
+        }
+
+        /// <summary>Adds a box-with-a-tick row for a bool; see <see cref="VeneerControls.ToggleCheckbox"/>.</summary>
+        public VisualElement Checkbox(string path, string label = null)
+        {
+            SerializedProperty property = Find(path, out VisualElement problem);
+            return property == null ? problem : Add(VeneerControls.ToggleCheckbox(property, label, brand));
+        }
+
+        /// <summary>
+        /// Adds a vertical radio list for an enum; see <see cref="VeneerControls.EnumRadio"/>. A property that is not an enum is added with
+        /// <see cref="Field"/>, and a flags enum as chips (<see cref="Flags"/>).
+        /// </summary>
+        public VisualElement Radio(string path, string[] icons = null, string[] tooltips = null, string label = null)
+        {
+            SerializedProperty property = Find(path, out VisualElement problem);
+            if (property == null)
+            {
+                return problem;
+            }
+
+            if (property.propertyType != SerializedPropertyType.Enum)
+            {
+                return Field(path, label);
+            }
+
+            Type enumType = VeneerFieldInfo.GetValueType(property);
+            if (enumType != null && Attribute.IsDefined(enumType, typeof(FlagsAttribute), false))
+            {
+                return Flags(path);
+            }
+
+            return Add(VeneerControls.EnumRadio(property, icons, tooltips, label, brand));
         }
 
         /// <summary>Adds an object slot with a thumbnail and a ping button; see <see cref="VeneerControls.ObjectSlot"/>.</summary>

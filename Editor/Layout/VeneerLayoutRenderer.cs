@@ -18,9 +18,13 @@ namespace Veneer
     public static class VeneerLayoutRenderer
     {
         private const int MaxNesting = 3;
+
+        // How deep designed lists may sit inside each other (groups > entries > ...); deeper lists keep the plain list editor.
+        internal const int MaxItemDepth = 3;
         private const string OtherTitle = "Other";
         private const string TitleRowClass = "vn-card__title";
         private const string BaseFieldLabelClass = "unity-base-field__label";
+        private const string ThumbClass = "vn-thumb";
 
         /// <summary>
         /// Renders <paramref name="layout"/> into the builder's current container. Call it between creating the builder and
@@ -977,7 +981,7 @@ namespace Veneer
                 return;
             }
 
-            AddAuto(b, property, null, null, 0, null, null);
+            AddAuto(b, layout, property, null, null, 0, null, null, 0, null);
         }
 
         // ------------------------------------------------------------------ custom items and widgets
@@ -998,7 +1002,7 @@ namespace Veneer
             }
 
             var context = new VeneerCustomItemContext(b, layout, entry);
-            return AddHosted(b, so, entry, false, "Custom item '" + item.Id + "'", () => item.Build(context));
+            return AddHosted(b, so, entry, false, false, "Custom item '" + item.Id + "'", () => item.Build(context));
         }
 
         // A custom widget for the property when one is registered for its path. Returns true when a widget is registered (it handled the
@@ -1006,24 +1010,33 @@ namespace Veneer
         private static bool TryAddCustomWidget(
             VeneerInspectorBuilder b, VeneerLayout layout, SerializedObject so, SerializedProperty property, VeneerLayoutEntry entry, out bool drawn)
         {
+            return TryAddCustomWidget(b, layout, so, property, entry, false, out drawn);
+        }
+
+        // <scoped> is true for a field inside a designed list item: the widget is found by the path without indices (groups.entries.prefab) and
+        // the show-if rule is left to the item list (its path is relative to the element, the builder's rules are not).
+        private static bool TryAddCustomWidget(
+            VeneerInspectorBuilder b, VeneerLayout layout, SerializedObject so, SerializedProperty property, VeneerLayoutEntry entry, bool scoped, out bool drawn)
+        {
             drawn = false;
-            if (!VeneerCustomItems.TryGetWidget(TargetTypeOf(so), property.propertyPath, out Func<VeneerCustomItemContext, SerializedProperty, VisualElement> build))
+            string widgetPath = scoped ? VeneerItemPaths.Normalize(property.propertyPath) : property.propertyPath;
+            if (!VeneerCustomItems.TryGetWidget(TargetTypeOf(so), widgetPath, out Func<VeneerCustomItemContext, SerializedProperty, VisualElement> build))
             {
                 return false;
             }
 
             var context = new VeneerCustomItemContext(b, layout, entry);
             bool readOnly = entry != null && entry.ReadOnly;
-            drawn = AddHosted(b, so, entry, readOnly, "Custom widget '" + property.propertyPath + "'", () => build(context, property));
+            drawn = AddHosted(b, so, entry, readOnly, scoped, "Custom widget '" + widgetPath + "'", () => build(context, property));
             return true;
         }
 
         // Runs <build> with the current container as its target. The result element (when it is not parented yet) is added. When the entry has
         // a show-if rule, or the widget is read-only, everything goes into a host element that carries the rule and the enabled state.
         private static bool AddHosted(
-            VeneerInspectorBuilder b, SerializedObject so, VeneerLayoutEntry entry, bool readOnly, string what, Func<VisualElement> build)
+            VeneerInspectorBuilder b, SerializedObject so, VeneerLayoutEntry entry, bool readOnly, bool scoped, string what, Func<VisualElement> build)
         {
-            bool wrap = readOnly || (entry != null && !string.IsNullOrEmpty(entry.ShowIfPath));
+            bool wrap = readOnly || (!scoped && entry != null && !string.IsNullOrEmpty(entry.ShowIfPath));
             VisualElement host = null;
             if (wrap)
             {
@@ -1066,7 +1079,11 @@ namespace Veneer
                 host.SetEnabled(false);
             }
 
-            AddShowIf(b, so, host, entry);
+            if (!scoped)
+            {
+                AddShowIf(b, so, host, entry);
+            }
+
             return true;
         }
 
@@ -1079,12 +1096,50 @@ namespace Veneer
                 return customDrawn;
             }
 
-            VisualElement element = AddWidget(b, property, entry);
+            VisualElement element = AddWidget(b, layout, so, property, entry, 0, null);
             if (element == null)
             {
                 return false;
             }
 
+            FinishWidget(element, property, entry);
+            ApplyWidthHeight(element, entry);
+            AddShowIf(b, so, element, entry);
+            return true;
+        }
+
+        /// <summary>
+        /// Draws one field of a designed list item into the builder's current container (the item list gives every entry its own cell).
+        /// <paramref name="property"/> is the field inside the element; size (width, height) and the show-if rule are left to the cell.
+        /// </summary>
+        internal static bool AddItemEntry(
+            VeneerInspectorBuilder b, VeneerLayout layout, SerializedProperty property, VeneerLayoutEntry entry, int depth, VeneerItemList parent)
+        {
+            SerializedObject so = b.SerializedObject;
+            if (TryAddCustomWidget(b, layout, so, property, entry, true, out bool customDrawn))
+            {
+                return customDrawn;
+            }
+
+            VisualElement element = AddWidget(b, layout, so, property, entry, depth, parent);
+            if (element == null)
+            {
+                return false;
+            }
+
+            FinishWidget(element, property, entry);
+            return true;
+        }
+
+        /// <summary>Draws a note of a designed list item into the current container (no show-if rule: the cell carries it).</summary>
+        internal static bool AddItemNote(VeneerInspectorBuilder b, VeneerLayoutEntry entry)
+        {
+            return AddNoteElement(b, entry) != null;
+        }
+
+        // Tooltip, read-only, hidden label and picture size: what every drawn field gets, in a card and in a list item alike.
+        private static void FinishWidget(VisualElement element, SerializedProperty property, VeneerLayoutEntry entry)
+        {
             if (!string.IsNullOrEmpty(entry.Tooltip))
             {
                 bool composite = element.ClassListContains("vn-card") || (property.isArray && property.propertyType != SerializedPropertyType.String);
@@ -1096,26 +1151,87 @@ namespace Veneer
                 element.SetEnabled(false);
             }
 
-            AddShowIf(b, so, element, entry);
-            return true;
+            if (entry.HideLabel)
+            {
+                // The label column of a kit field row; other widgets have none.
+                VisualElement label = element.ClassListContains("vn-field-row") ? element[0] : element.Q(className: "vn-field-row__label");
+                if (label != null)
+                {
+                    VeneerStyle.SetDisplay(label, false);
+                }
+            }
+
+            ApplyPictureSize(element, property, entry);
+        }
+
+        // The width and height the user gave the whole item in the Designer. 0 leaves the automatic size. A fixed width never goes past the
+        // card (max-width 100%), so a narrow Inspector still fits.
+        internal static void ApplyWidthHeight(VisualElement element, VeneerLayoutEntry entry)
+        {
+            if (entry.Width > 0f)
+            {
+                element.style.width = entry.Width;
+                element.style.maxWidth = Length.Percent(100f);
+                element.style.flexShrink = 1f;
+                element.style.alignSelf = Align.FlexStart;
+            }
+
+            if (entry.Height > 0f)
+            {
+                element.style.height = entry.Height;
+                element.style.flexShrink = 0f;
+            }
+        }
+
+        // The size of the small picture of an object reference (the Designer's Picture width / height).
+        private static void ApplyPictureSize(VisualElement element, SerializedProperty property, VeneerLayoutEntry entry)
+        {
+            bool picture = entry.PictureWidth > 0f || entry.PictureHeight > 0f;
+            if (picture && property.propertyType == SerializedPropertyType.ObjectReference)
+            {
+                VisualElement thumb = element.Q(className: ThumbClass);
+                if (thumb != null)
+                {
+                    if (entry.PictureWidth > 0f)
+                    {
+                        thumb.style.width = entry.PictureWidth;
+                    }
+
+                    if (entry.PictureHeight > 0f)
+                    {
+                        thumb.style.height = entry.PictureHeight;
+                    }
+                }
+            }
         }
 
         // A note is free text with line breaks kept: a message box (the kit's Hint: info, warn or error), or for kind Text a plain muted
         // label like the Combat studio's ClipNote. Empty text draws nothing.
         private static bool AddNote(VeneerInspectorBuilder b, SerializedObject so, VeneerLayoutEntry entry)
         {
-            if (string.IsNullOrEmpty(entry.NoteText))
+            VisualElement element = AddNoteElement(b, entry);
+            if (element == null)
             {
                 return false;
+            }
+
+            AddShowIf(b, so, element, entry);
+            return true;
+        }
+
+        // Draws the note into the current container and returns its element; null for an empty note.
+        private static VisualElement AddNoteElement(VeneerInspectorBuilder b, VeneerLayoutEntry entry)
+        {
+            if (string.IsNullOrEmpty(entry.NoteText))
+            {
+                return null;
             }
 
             string text = entry.NoteText.IndexOf('\r') >= 0 ? entry.NoteText.Replace("\r\n", "\n").Replace('\r', '\n') : entry.NoteText;
             if (entry.NoteKind == VeneerNoteKind.Heading)
             {
                 // The kit's section title: small muted capitals, no box.
-                VisualElement heading = b.Section(text);
-                AddShowIf(b, so, heading, entry);
-                return true;
+                return b.Section(text);
             }
 
             if (entry.NoteKind == VeneerNoteKind.Text)
@@ -1126,18 +1242,17 @@ namespace Veneer
                 note.style.marginTop = 2f;
                 note.style.marginBottom = 6f;
                 b.Add(note);
-                AddShowIf(b, so, note, entry);
-                return true;
+                return note;
             }
 
             string kind = entry.NoteKind == VeneerNoteKind.Warning ? "warn" : entry.NoteKind == VeneerNoteKind.Error ? "error" : "info";
-            VisualElement hint = b.Hint(text, kind);
-            AddShowIf(b, so, hint, entry);
-            return true;
+            return b.Hint(text, kind);
         }
 
         // A widget that does not fit the field's type falls back to Auto: a field is never dropped because of a wrong choice.
-        private static VisualElement AddWidget(VeneerInspectorBuilder b, SerializedProperty property, VeneerLayoutEntry entry)
+        // <itemDepth> and <parent> tell a designed list nested in an item list where it sits (0 and null at the top).
+        private static VisualElement AddWidget(
+            VeneerInspectorBuilder b, VeneerLayout layout, SerializedObject so, SerializedProperty property, VeneerLayoutEntry entry, int itemDepth, VeneerItemList parent)
         {
             string path = property.propertyPath;
             string label = EmptyToNull(entry.Label);
@@ -1164,6 +1279,13 @@ namespace Veneer
             if (widget == VeneerWidget.Auto && entry.HasRange && numeric)
             {
                 widget = VeneerFieldInfo.TryGetRange(property, out _, out _) ? VeneerWidget.Slider : VeneerWidget.Number;
+            }
+
+            // A list that has an item design is drawn by the item list (Auto and List widgets alike).
+            if ((widget == VeneerWidget.Auto || widget == VeneerWidget.List) && property.isArray && type != SerializedPropertyType.String
+                && TryAddItemList(b, layout, property, label, itemDepth, parent, out VisualElement itemList))
+            {
+                return itemList;
             }
 
             switch (widget)
@@ -1235,6 +1357,27 @@ namespace Veneer
                     }
 
                     break;
+                case VeneerWidget.Radio:
+                    if (type == SerializedPropertyType.Enum)
+                    {
+                        return b.Radio(path, ParseIcons(entry.EnumIcons), null, label);
+                    }
+
+                    break;
+                case VeneerWidget.Switch:
+                    if (type == SerializedPropertyType.Boolean)
+                    {
+                        return b.Switch(path, label);
+                    }
+
+                    break;
+                case VeneerWidget.Checkbox:
+                    if (type == SerializedPropertyType.Boolean)
+                    {
+                        return b.Checkbox(path, label);
+                    }
+
+                    break;
                 case VeneerWidget.Object:
                     if (type == SerializedPropertyType.ObjectReference)
                     {
@@ -1272,7 +1415,27 @@ namespace Veneer
                     break;
             }
 
-            return AddAuto(b, property, label, unit, 0, left, right);
+            return AddAuto(b, layout, property, label, unit, 0, left, right, itemDepth, parent);
+        }
+
+        // The item list of the list property when the layout designs the inside of that list and the nesting limit is not reached.
+        private static bool TryAddItemList(
+            VeneerInspectorBuilder b, VeneerLayout layout, SerializedProperty property, string label, int itemDepth, VeneerItemList parent, out VisualElement element)
+        {
+            element = null;
+            if (layout == null || layout.Items == null || layout.Items.Count == 0 || itemDepth >= MaxItemDepth)
+            {
+                return false;
+            }
+
+            VeneerItemLayout design = layout.FindItem(VeneerItemPaths.Normalize(property.propertyPath));
+            if (design == null)
+            {
+                return false;
+            }
+
+            element = b.Add(VeneerItemList.Create(b, layout, property, design, label, itemDepth, parent));
+            return true;
         }
 
         // Keeps what is typed into the number field of a slider or number row inside Min..Max (a value outside is written back clamped).
@@ -1360,17 +1523,18 @@ namespace Veneer
 
         // The same choice as VeneerAutoInspector.AddProperty, plus a label and a unit from the layout (and slider end captions).
         private static VisualElement AddAuto(
-            VeneerInspectorBuilder b, SerializedProperty property, string label, string unit, int depth, string sliderLeft, string sliderRight)
+            VeneerInspectorBuilder b, VeneerLayout layout, SerializedProperty property, string label, string unit, int depth, string sliderLeft, string sliderRight,
+            int itemDepth, VeneerItemList parent)
         {
             string path = property.propertyPath;
             if (property.isArray && property.propertyType != SerializedPropertyType.String)
             {
-                return b.List(path, label);
+                return TryAddItemList(b, layout, property, label, itemDepth, parent, out VisualElement itemList) ? itemList : b.List(path, label);
             }
 
             if (depth < MaxNesting && IsNestedStruct(property))
             {
-                return AddNested(b, property, label, depth);
+                return AddNested(b, layout, property, label, depth, itemDepth, parent);
             }
 
             if (property.propertyType == SerializedPropertyType.Float || property.propertyType == SerializedPropertyType.Integer)
@@ -1390,7 +1554,8 @@ namespace Veneer
             return b.Field(path, label);
         }
 
-        private static VisualElement AddNested(VeneerInspectorBuilder b, SerializedProperty property, string label, int depth)
+        private static VisualElement AddNested(
+            VeneerInspectorBuilder b, VeneerLayout layout, SerializedProperty property, string label, int depth, int itemDepth, VeneerItemList parent)
         {
             VisualElement nested = b.Card(label ?? property.displayName, null);
             nested.AddToClassList("vn-card--nested");
@@ -1403,7 +1568,7 @@ namespace Veneer
                 while (child.NextVisible(enter) && !SerializedProperty.EqualContents(child, end))
                 {
                     enter = false;
-                    AddAuto(b, child.Copy(), null, null, depth + 1, null, null);
+                    AddAuto(b, layout, child.Copy(), null, null, depth + 1, null, null, itemDepth, parent);
                 }
             }
 
@@ -1533,7 +1698,7 @@ namespace Veneer
         /// references (assigned or not), text (empty or not) and lists/arrays (size 0 or not; IsNull is not defined for text and lists).
         /// A rule that cannot be understood or evaluated for the watched type never hides the item. Evaluating allocates nothing.
         /// </summary>
-        private sealed class ShowIfRule
+        internal sealed class ShowIfRule
         {
             private const double Epsilon = 1e-6;
 
@@ -1550,7 +1715,7 @@ namespace Veneer
                 this.text = text;
             }
 
-            public static ShowIfRule Create(SerializedProperty watched, VeneerCondition condition, string value)
+            internal static ShowIfRule Create(SerializedProperty watched, VeneerCondition condition, string value)
             {
                 bool needsValue = condition == VeneerCondition.Equals || condition == VeneerCondition.NotEquals
                     || condition == VeneerCondition.Greater || condition == VeneerCondition.Less;
@@ -1622,7 +1787,7 @@ namespace Veneer
                 return new ShowIfRule(watched.Copy(), condition, number, raw);
             }
 
-            public bool IsVisible()
+            internal bool IsVisible()
             {
                 if (property.hasMultipleDifferentValues)
                 {

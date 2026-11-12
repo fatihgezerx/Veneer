@@ -33,7 +33,13 @@ namespace Veneer
         /// <summary>A colour row.</summary>
         Color,
         /// <summary>An animation curve row.</summary>
-        Curve
+        Curve,
+        /// <summary>A sliding on/off switch (a settings look) for a bool.</summary>
+        Switch,
+        /// <summary>A box with a tick (Unity's toggle, in the kit's look) for a bool.</summary>
+        Checkbox,
+        /// <summary>A vertical list of choices with a dot per member for an enum (good for long names or a tooltip per choice).</summary>
+        Radio
     }
 
     /// <summary>The test of a "show only when" rule on a field.</summary>
@@ -162,6 +168,18 @@ namespace Veneer
         /// <summary>Kit icon names for the buttons of an enum shown with <see cref="VeneerWidget.Enum"/>, comma separated, one per value in order; empty shows the value names.</summary>
         public string EnumIcons;
 
+        /// <summary>Width in pixels of the whole item (any widget); 0 keeps the automatic width (the full width of the card). Never wider than the card.</summary>
+        public float Width;
+
+        /// <summary>Height in pixels of the whole item (any widget); 0 keeps the automatic height.</summary>
+        public float Height;
+
+        /// <summary>Width in pixels of the small picture of an object reference (the preview of a prefab, sprite, material...); 0 keeps the default size.</summary>
+        public float PictureWidth;
+
+        /// <summary>Height in pixels of the small picture of an object reference; 0 keeps the default size.</summary>
+        public float PictureHeight;
+
         /// <summary>Path of the field the show-if rule looks at; empty means the item is always shown (this also applies to notes).</summary>
         public string ShowIfPath;
 
@@ -170,6 +188,64 @@ namespace Veneer
 
         /// <summary>The value the test compares with (text; parsed by the type of the other field).</summary>
         public string ShowIfValue;
+
+        // Appended after the saved fields above, so layouts saved before it still load.
+
+        /// <summary>True: the label column of the field is not drawn (the item is the control alone). Mostly for fields inside a designed list item, where several fields share one line.</summary>
+        public bool HideLabel;
+    }
+
+    /// <summary>How each element of a list of a <c>[Serializable]</c> class is drawn by a <see cref="VeneerItemLayout"/>.</summary>
+    public enum VeneerItemLook
+    {
+        /// <summary>A bordered box per element with a head row (handle, title, count, fold arrow, remove button) and the element's fields below it.</summary>
+        Card,
+        /// <summary>One flat row per element: the handle at the left, the element's fields in the middle, the remove button at the right.</summary>
+        Row
+    }
+
+    /// <summary>
+    /// The design of the inside of one list whose elements are a <c>[Serializable]</c> class, for example Pool Data's <c>groups</c>. It is
+    /// kept in <see cref="VeneerLayout.Items"/>, found by <see cref="ListPath"/>: the list's property path with every array index removed
+    /// (<c>groups</c>, <c>groups.entries</c>). The <see cref="Entries"/> reuse <see cref="VeneerLayoutEntry"/> with one difference: their
+    /// <see cref="VeneerLayoutEntry.Path"/> (and <see cref="VeneerLayoutEntry.ShowIfPath"/>) is relative to the element (<c>prefab</c>,
+    /// <c>entries</c>). Entries with <see cref="VeneerLayoutEntry.SameRow"/> share one wrapping line.
+    /// </summary>
+    [Serializable]
+    public sealed class VeneerItemLayout
+    {
+        /// <summary>The list's property path without array indices (see <see cref="VeneerItemPaths.Normalize"/>).</summary>
+        public string ListPath;
+
+        /// <summary>How an element is drawn.</summary>
+        public VeneerItemLook Look;
+
+        /// <summary>Show a drag handle that reorders the elements.</summary>
+        public bool ShowHandle = true;
+
+        /// <summary>Show a remove button on every element.</summary>
+        public bool ShowRemove = true;
+
+        /// <summary>Show a fold arrow that hides the body of a card (<see cref="VeneerItemLook.Card"/> only).</summary>
+        public bool ShowFold = true;
+
+        /// <summary>Show a count pill in the head of a card: the size of the element's first list (<see cref="VeneerItemLook.Card"/> only).</summary>
+        public bool ShowCount = true;
+
+        /// <summary>Relative path of the text field edited in the card head (for example <c>header</c>); empty shows "Item n".</summary>
+        public string TitlePath;
+
+        /// <summary>Text of the button that adds an element; empty uses "Add".</summary>
+        public string AddLabel;
+
+        /// <summary>Text shown while the list has no element; empty uses "No items yet."</summary>
+        public string EmptyText;
+
+        /// <summary>The fields of an element, in order. Paths are relative to the element.</summary>
+        public List<VeneerLayoutEntry> Entries = new List<VeneerLayoutEntry>();
+
+        /// <summary>True: the list has no header line (title, count, Add) and its Add button sits under the elements, like the button under a group's pools.</summary>
+        public bool AddAtEnd;
     }
 
     /// <summary>A card: a titled box holding fields.</summary>
@@ -342,8 +418,41 @@ namespace Veneer
         /// <summary>Show fields that are in no card in an automatic "Other" section at the end, so a field added to the script later is never lost.</summary>
         public bool ShowOthers = true;
 
+        // Appended after the saved fields above, so layouts saved before it still load.
+
+        /// <summary>The designs of the insides of lists of classes, keyed by <see cref="VeneerItemLayout.ListPath"/>. A list without one is drawn as before.</summary>
+        public List<VeneerItemLayout> Items = new List<VeneerItemLayout>();
+
         /// <summary>True when the layout has at least one tab, so it replaces the default Inspector.</summary>
         public bool HasContent => Pages != null && Pages.Count > 0;
+
+        /// <summary>The item design of the list at <paramref name="listPath"/> (indices already removed), or null.</summary>
+        public VeneerItemLayout FindItem(string listPath)
+        {
+            return FindItem(listPath, out _);
+        }
+
+        /// <summary>The item design of the list at <paramref name="listPath"/> (indices already removed), or null; <paramref name="index"/> is its place in <see cref="Items"/> or -1.</summary>
+        public VeneerItemLayout FindItem(string listPath, out int index)
+        {
+            index = -1;
+            if (Items == null || string.IsNullOrEmpty(listPath))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < Items.Count; i++)
+            {
+                VeneerItemLayout item = Items[i];
+                if (item != null && string.Equals(item.ListPath, listPath, StringComparison.Ordinal))
+                {
+                    index = i;
+                    return item;
+                }
+            }
+
+            return null;
+        }
 
         /// <summary>Finds the entry that holds <paramref name="path"/>, or null.</summary>
         /// <param name="path">A top-level property path.</param>

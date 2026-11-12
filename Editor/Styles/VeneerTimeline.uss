@@ -1,0 +1,279 @@
+/*
+ * Veneer - timeline (Controls/VeneerTimeline.cs).
+ *
+ * .vn-tl is the whole control: a ruler strip (it also holds the bubble), then the lanes. Spans and grips are placed in percent of the
+ * lane, so nothing here depends on the width. Every colour comes from the kit's tokens (--vn-track, --vn-card-border, --vn-text,
+ * --vn-text-muted, --vn-accent), so a theme or the light skin recolours the control; a host colours its spans with its own class
+ * (.host-class > .vn-tl__span-fill { background-color: var(--vn-warn); }). The fade of the bubble and the hover of the grips follow the
+ * root's Motion class (vn-motion--off|subtle|lively) at the end of this file.
+ */
+
+.vn-tl {
+    position: relative;
+    flex-direction: column;
+    flex-shrink: 0;
+    margin: 2px 0 4px 0;
+    padding: 0;
+}
+
+.vn-tl > .vn-tl__inner {
+    flex-direction: column;
+    padding-top: 0;
+    padding-bottom: 2px;
+}
+
+.vn-tl .vn-tl__ruler {
+    flex-shrink: 0;
+    color: var(--vn-text-muted);
+}
+
+.vn-tl .vn-tl__body {
+    position: relative;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ lanes */
+
+.vn-tl .vn-tl__lane {
+    position: relative;
+    flex-shrink: 0;
+    margin: 0 0 4px 0;
+    border-radius: 6px;
+    background-color: var(--vn-track);
+}
+
+.vn-tl .vn-tl__layer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+/* the thin card border, on its own element so it takes no width from the lane */
+.vn-tl .vn-tl__frame {
+    border-width: 1px;
+    border-radius: 6px;
+    border-color: var(--vn-card-border);
+}
+
+.vn-tl .vn-tl__lane-title {
+    position: absolute;
+    left: 7px;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0;
+    font-size: 9px;
+    color: var(--vn-text-muted);
+    -unity-text-align: middle-left;
+}
+
+/* ------------------------------------------------------------------ spans: a soft rounded fill with a pixel of gap to its neighbour */
+
+.vn-tl .vn-tl__span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+}
+
+.vn-tl .vn-tl__span-fill {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    top: 0;
+    bottom: 0;
+    border-radius: 5px;
+    background-color: var(--vn-text-muted);
+}
+
+.vn-tl .vn-tl__span-label {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0 4px;
+    color: var(--vn-text);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-text-align: middle-center;
+}
+
+/* ------------------------------------------------------------------ grips: slim rounded light pills */
+
+.vn-tl .vn-tl__handle {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 14px;
+    margin-left: -7px;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: center;
+    cursor: resize-horizontal;
+}
+
+.vn-tl .vn-tl__grip {
+    width: 4px;
+    border-width: 1px;
+    border-radius: 3px;
+    border-color: rgba(0, 0, 0, 0.45);
+    background-color: var(--vn-text);
+    opacity: 0.92;
+    transition-property: width, opacity, border-color;
+    transition-duration: 0.1s;
+}
+
+.vn-root--light .vn-tl .vn-tl__grip { border-color: rgba(255, 255, 255, 0.7); }
+
+.vn-tl .vn-tl__handle:hover > .vn-tl__grip,
+.vn-tl .vn-tl__handle.vn-tl__handle--drag > .vn-tl__grip {
+    width: 6px;
+    opacity: 1;
+    border-color: var(--vn-accent);
+}
+
+.vn-tl:focus .vn-tl__handle.vn-tl__handle--selected > .vn-tl__grip {
+    width: 6px;
+    border-color: var(--vn-accent);
+}
+
+/* ------------------------------------------------------------------ marker: a thin line across the lane with a small tab on top (an animation event's look) */
+
+.vn-tl .vn-tl__handle.vn-tl__handle--line {
+    top: -6px;
+    bottom: -3px;
+    width: 12px;
+    margin-left: -6px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.vn-tl .vn-tl__handle--line > .vn-tl__tab {
+    width: 8px;
+    height: 5px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    background-color: var(--vn-text);
+}
+
+.vn-tl .vn-tl__handle--line > .vn-tl__grip,
+.vn-tl .vn-tl__handle.vn-tl__handle--line:hover > .vn-tl__grip,
+.vn-tl .vn-tl__handle.vn-tl__handle--line.vn-tl__handle--drag > .vn-tl__grip,
+.vn-tl:focus .vn-tl__handle.vn-tl__handle--line.vn-tl__handle--selected > .vn-tl__grip {
+    width: 2px;
+    flex-grow: 1;
+    border-width: 0;
+    border-radius: 1px;
+    background-color: var(--vn-text);
+    opacity: 1;
+}
+
+/* the glow: a soft rounded halo behind the line that fades in on hover and while dragged */
+.vn-tl .vn-tl__handle--line > .vn-tl__halo {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    top: 0;
+    bottom: 0;
+    border-radius: 5px;
+    background-color: var(--vn-text);
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.12s;
+}
+
+.vn-tl .vn-tl__handle--line:hover > .vn-tl__halo,
+.vn-tl .vn-tl__handle.vn-tl__handle--line.vn-tl__handle--drag > .vn-tl__halo { opacity: 0.22; }
+
+.vn-tl:focus .vn-tl__handle.vn-tl__handle--line.vn-tl__handle--selected > .vn-tl__tab {
+    border-width: 1px;
+    border-color: var(--vn-accent);
+}
+
+.vn-motion--off .vn-tl .vn-tl__halo { transition-duration: 0s; }
+
+/* ------------------------------------------------------------------ playhead: the accent colour with a small rounded head */
+
+.vn-tl .vn-tl__playhead {
+    position: absolute;
+    top: -2px;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background-color: var(--vn-accent);
+}
+
+.vn-tl .vn-tl__playhead-head {
+    position: absolute;
+    bottom: 0;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    border-radius: 5px;
+    background-color: var(--vn-accent);
+}
+
+.vn-tl .vn-tl__playhead-head.vn-tl__playhead-head--selected {
+    border-width: 1px;
+    border-color: var(--vn-text);
+}
+
+/* ------------------------------------------------------------------ bubble */
+
+.vn-tl > .vn-tl__bubble {
+    position: absolute;
+    top: 0;
+    flex-direction: row;
+    align-items: center;
+    height: 16px;
+    padding: 0 7px;
+    translate: -50% 3px;
+    border-width: 1px;
+    border-radius: 8px;
+    border-color: var(--vn-accent-line);
+    background-color: #1E1E1E;
+    opacity: 0;
+    transition-property: opacity, translate;
+    transition-duration: 0.14s;
+    transition-timing-function: ease-out;
+}
+
+.vn-root--light .vn-tl > .vn-tl__bubble { background-color: #F4F4F4; }
+
+.vn-tl > .vn-tl__bubble.vn-tl__bubble--show {
+    opacity: 1;
+    translate: -50% 0;
+}
+
+.vn-tl .vn-tl__bubble-name,
+.vn-tl .vn-tl__bubble-time,
+.vn-tl .vn-tl__bubble-frame {
+    margin: 0 4px 0 0;
+    padding: 0;
+    font-size: 10px;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+}
+
+.vn-tl .vn-tl__bubble-name { color: var(--vn-text-muted); }
+.vn-tl .vn-tl__bubble-time { color: var(--vn-text); -unity-font-style: bold; }
+.vn-tl .vn-tl__bubble-frame { margin-right: 0; color: var(--vn-accent); }
+
+/* ------------------------------------------------------------------ motion setting of the root (last, so these win) */
+
+.vn-motion--off .vn-tl > .vn-tl__bubble { transition-duration: 0s; }
+.vn-motion--off .vn-tl .vn-tl__grip { transition-duration: 0s; }
+
+.vn-motion--subtle .vn-tl > .vn-tl__bubble { transition-duration: 0.08s; }
+.vn-motion--subtle .vn-tl .vn-tl__grip { transition-duration: 0.06s; }
+
+.vn-motion--lively .vn-tl > .vn-tl__bubble { transition-duration: 0.22s; transition-timing-function: ease-out-back; }
+.vn-motion--lively .vn-tl .vn-tl__grip { transition-duration: 0.16s; }

@@ -108,7 +108,7 @@ namespace Veneer
 
             // Shown while the system's own design is open: it cannot be edited, the button makes an editable copy.
             readOnlyBar = VeneerStyle.Hint("This is the system's own design (read-only). Press Customize to edit your own copy.", "info", Brand);
-            readOnlyBar.Add(VeneerStyle.Button("Customize", "edit", "Makes your own editable copy of this design in Assets/Veneer Layouts.", CustomizeDefault, true, Brand));
+            readOnlyBar.Add(VeneerStyle.Button("Customize", "edit", "Makes your own editable copy of this design in the Veneer folder's Data/Layouts.", CustomizeDefault, true, Brand));
             readOnlyBar.style.marginBottom = 6f;
             VeneerStyle.SetDisplay(readOnlyBar, false);
             pane.Add(readOnlyBar);
@@ -820,11 +820,12 @@ namespace Veneer
         }
 
         // Selects the entry that holds a field path (used by clicking a placed field in the left pane).
-        private void SelectEntryByPath(string path)
+        // Returns false when the path (or a struct around it) is in no card.
+        private bool SelectEntryByPath(string path)
         {
             if (layout == null)
             {
-                return;
+                return false;
             }
 
             VeneerLayoutEntry entry = layout.FindEntry(path, out int page, out int block);
@@ -834,7 +835,7 @@ namespace Veneer
                 int dot = path.LastIndexOf('.');
                 if (dot <= 0)
                 {
-                    return;
+                    return false;
                 }
 
                 path = path.Substring(0, dot);
@@ -842,6 +843,7 @@ namespace Veneer
             }
 
             Select(new Node(NodeKind.Entry, page, block, layout.Pages[page].Blocks[block].Entries.IndexOf(entry)));
+            return true;
         }
 
         // Selects the entry of a custom item (used by clicking a placed item in the left pane).
